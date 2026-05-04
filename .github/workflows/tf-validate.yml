@@ -1,0 +1,42 @@
+name: Terraform Validate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/**"
+
+jobs:
+  validate:
+    name: fmt + validate + tflint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [eks, rds, iam, addons]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+
+      - name: Setup tflint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive terraform/${{ matrix.module }}/
+
+      - name: Terraform init
+        run: terraform init -backend=false
+        working-directory: terraform/${{ matrix.module }}
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: terraform/${{ matrix.module }}
+
+      - name: tflint
+        run: |
+          tflint --init
+          tflint
+        working-directory: terraform/${{ matrix.module }}

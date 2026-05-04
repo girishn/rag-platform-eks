@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Lint (ruff)
+        run: uv run ruff check src/
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check src/
+
+      - name: Type check (mypy)
+        run: uv run mypy src/
+
+      - name: Test — RAG API
+        run: uv run pytest src/rag_api/tests/ -v --tb=short
+
+      - name: Test — Ingestion
+        run: uv run pytest src/ingestion/tests/ -v --tb=short
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build RAG API image
+        run: docker build -f src/rag_api/Dockerfile -t rag-api:ci .
+
+      - name: Build Ingestion image
+        run: docker build -f src/ingestion/Dockerfile -t ingestion:ci .

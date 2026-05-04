@@ -1,0 +1,55 @@
+[project]
+name = "rag-platform-eks"
+version = "0.1.0"
+description = "Production-grade multi-tenant RAG platform on Amazon EKS"
+requires-python = ">=3.13"
+dependencies = [
+    # RAG API
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "httpx>=0.28.0",
+    # AWS
+    "boto3>=1.35.0",
+    "botocore>=1.35.0",
+    # Database
+    "asyncpg>=0.30.0",
+    "pgvector>=0.3.0",
+    # Observability
+    "opentelemetry-sdk>=1.28.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.28.0",
+    "opentelemetry-instrumentation-fastapi>=0.49b0",
+    "prometheus-client>=0.21.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "moto[bedrock,s3]>=5.0.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "boto3-stubs[bedrock-runtime,s3,ssm]>=1.35.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "ANN", "S", "B"]
+ignore = ["ANN101", "ANN102"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["src"]

@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  push-images:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ECR_PUSH_ROLE_ARN }}
+          aws-region: ap-southeast-2
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: tag
+        run: echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Build and push RAG API
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          TAG: ${{ steps.tag.outputs.TAG }}
+        run: |
+          docker build -f src/rag_api/Dockerfile \
+            -t $REGISTRY/rag-api:$TAG \
+            -t $REGISTRY/rag-api:latest .
+          docker push $REGISTRY/rag-api:$TAG
+          docker push $REGISTRY/rag-api:latest
+
+      - name: Build and push Ingestion
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          TAG: ${{ steps.tag.outputs.TAG }}
+        run: |
+          docker build -f src/ingestion/Dockerfile \
+            -t $REGISTRY/ingestion:$TAG \
+            -t $REGISTRY/ingestion:latest .
+          docker push $REGISTRY/ingestion:$TAG
+          docker push $REGISTRY/ingestion:latest

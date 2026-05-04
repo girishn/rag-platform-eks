@@ -1,0 +1,167 @@
+# RAG Platform on EKS
+
+A production-grade, multi-tenant Retrieval-Augmented Generation platform on Amazon EKS.
+Built as an AI Platform Engineering reference implementation demonstrating enterprise patterns:
+dual-backend LLM routing, Kubernetes Gateway API with VPC Lattice, EKS Pod Identity,
+per-tenant isolation, and full LLM observability.
+
+---
+
+## Problem statement
+
+Enterprise teams need to run LLM-powered features against their own private documents without
+sending data to third-party APIs. This platform provides a managed, multi-tenant RAG service:
+tenants upload documents, the platform indexes them into a vector store, and serves accurate,
+grounded answers via an OpenAI-compatible API — all within a single AWS account with hard
+per-tenant data and budget isolation.
+
+---
+
+## Architecture
+
+```mermaid
+C4Container
+  title Container Diagram — RAG Platform on EKS
+
+  Person(user, "Application User")
+  Person(admin, "Platform Admin")
+
+  System_Boundary(eks, "Amazon EKS Cluster") {
+    Container(gateway, "AWS VPC Lattice Gateway", "Gateway API Controller", "Routes external HTTPS via HTTPRoute")
+    Container(rag_api, "RAG API", "FastAPI / Python 3.13", "Query rewriting, embedding, retrieval, prompt assembly, streaming")
+    Container(litellm, "LiteLLM Proxy", "Python", "OpenAI-compatible router: Bedrock primary, vLLM fallback")
+    Container(vllm, "vLLM", "Python / GPU (A10G)", "Self-hosted Llama 3.1 8B; PagedAttention")
+    Container(ingestion, "Ingestion CronJob", "Python", "S3 → chunk → Titan embed → pgvector upsert")
+  }
+
+  System_Ext(bedrock, "AWS Bedrock", "Claude 3.5 Sonnet + Titan Embeddings + Guardrails")
+  System_Ext(rds, "RDS pgvector", "Per-tenant HNSW vector index")
+  System_Ext(s3, "Amazon S3", "Documents + model weights")
+
+  Rel(user, gateway, "POST /v1/chat/completions", "HTTPS")
+  Rel(gateway, rag_api, "HTTPRoute", "HTTP/2")
+  Rel(rag_api, bedrock, "Embed + Guardrails", "AWS SDK")
+  Rel(rag_api, rds, "ANN search", "PostgreSQL")
+  Rel(rag_api, litellm, "LLM completion", "HTTP")
+  Rel(litellm, bedrock, "Primary", "AWS SDK")
+  Rel(litellm, vllm, "Fallback", "HTTP")
+  Rel(ingestion, s3, "Read docs", "AWS SDK")
+  Rel(ingestion, bedrock, "Embed chunks", "AWS SDK")
+  Rel(ingestion, rds, "Upsert vectors", "PostgreSQL")
+```
+
+Full diagrams in [`docs/architecture/`](docs/architecture/).
+
+---
+
+## Key engineering decisions
+
+| Decision | ADR |
+|---|---|
+| LiteLLM as dual-provider router (Bedrock primary, vLLM fallback) | [ADR-001](docs/adr/ADR-001-llm-routing-strategy.md) |
+| pgvector on RDS over Weaviate or OpenSearch | [ADR-002](docs/adr/ADR-002-vector-database-selection.md) |
+| AWS Gateway API Controller (VPC Lattice) over Kong or Envoy | [ADR-003](docs/adr/ADR-003-gateway-api-controller.md) |
+| EKS Pod Identity over IRSA for application IAM | [ADR-004](docs/adr/ADR-004-eks-pod-identity-over-irsa.md) |
+| vLLM over SageMaker or Triton for GPU inference | [ADR-005](docs/adr/ADR-005-vllm-model-serving.md) |
+| Namespace + schema + virtual key as three-layer tenant isolation | [ADR-006](docs/adr/ADR-006-multi-tenant-isolation-model.md) |
+
+---
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Kubernetes | EKS 1.35, Karpenter (CPU + GPU NodePools) |
+| Gateway | Kubernetes Gateway API + AWS Gateway API Controller (VPC Lattice) |
+| LLM Router | LiteLLM Proxy (OpenAI-compatible) |
+| LLM Primary | AWS Bedrock — Claude 3.5 Sonnet + Titan Embeddings V2 + Guardrails |
+| LLM Fallback | vLLM — Llama 3.1 8B on g5 GPU nodes (Karpenter spot, KEDA scale-to-zero) |
+| RAG API | FastAPI on EKS (query rewriting, retrieval, prompt assembly, streaming) |
+| Vector store | pgvector on RDS PostgreSQL (HNSW index, per-tenant schemas) |
+| Document store | S3 (raw docs, chunked text, model weights) |
+| Ingestion | Kubernetes CronJob (chunking → Titan embed → pgvector upsert) |
+| Observability | Prometheus + Grafana + OpenTelemetry Collector + CloudWatch X-Ray |
+| IaC | Terraform (terraform-aws-modules/eks, eks-blueprints-addons) |
+| AWS auth | EKS Pod Identity for all application workloads |
+| Language | Python 3.13 + uv |
+| AWS region | ap-southeast-2 |
+
+---
+
+## Operational maturity
+
+- **Runbooks** for all known failure modes: [GPU node issues](docs/runbooks/gpu-node-troubleshooting.md), [Bedrock quota exhaustion](docs/runbooks/bedrock-quota-exhausted.md), [pgvector slow queries](docs/runbooks/pgvector-slow-queries.md), [LiteLLM fallback diagnosis](docs/runbooks/litellm-fallback-triggered.md)
+- **Cost model** with per-component breakdown and optimisation levers: [cost-model.md](docs/cost-model.md) (~$360/month baseline; GPU scale-to-zero saves $280–$320/month)
+- **Grafana dashboards** version-controlled in [`dashboards/`](dashboards/): latency P50/P95/P99, GPU utilisation, per-tenant spend, Bedrock vs vLLM routing split
+- **AlertManager rules**: `num_requests_waiting > 10`, `gpu_cache_usage > 90%`, `fallback_triggered`, `error_rate > 1%`
+
+---
+
+## Build status
+
+| Component | Status |
+|---|---|
+| ADRs (6) | Done |
+| Architecture diagrams (8) | Done |
+| Runbooks (4) | Done |
+| Cost model | Done |
+| `terraform/bootstrap` | Done |
+| `terraform/eks` (VPC, EKS, Karpenter) | Not started |
+| `terraform/rds` (PostgreSQL + pgvector) | Not started |
+| `terraform/iam` (Pod Identity roles) | Not started |
+| `terraform/addons` (Gateway, Prometheus, KEDA) | Not started |
+| `helm/vllm` | Not started |
+| `helm/litellm` | Not started |
+| `src/rag_api` (FastAPI) | Scaffold done |
+| `helm/rag-api` | Not started |
+| `k8s/gateway` (GatewayClass, HTTPRoute) | Not started |
+| `src/ingestion` (CronJob pipeline) | Scaffold done |
+| `helm/ingestion` | Not started |
+| Grafana dashboards | Not started |
+
+---
+
+## Quick start
+
+```bash
+# Install uv (https://docs.astral.sh/uv/)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install all dependencies
+uv sync --all-extras
+
+# Run tests
+uv run scripts/test.py
+
+# Lint and type check
+uv run scripts/lint.py
+
+# Bootstrap Terraform state (once only)
+cd terraform/bootstrap && terraform init && terraform apply
+
+# Provision full stack
+uv run scripts/provision.py
+```
+
+---
+
+## Repository layout
+
+```
+├── .github/            GitHub Actions (CI, tf-validate, release) + issue templates
+├── terraform/          IaC: bootstrap, eks, rds, iam, addons
+├── helm/               Helm charts: rag-api, litellm, vllm, ingestion
+├── src/
+│   ├── rag_api/        FastAPI RAG service
+│   └── ingestion/      Chunking + embedding CronJob
+├── k8s/                Gateway API manifests, KEDA ScaledObject
+├── scripts/            uv-managed automation scripts
+├── dashboards/         Grafana JSON exports (version-controlled)
+└── docs/
+    ├── adr/            Architecture Decision Records
+    ├── architecture/   Mermaid diagrams (8 diagrams)
+    ├── runbooks/       Operational playbooks
+    ├── build-plan.md   Step checklist
+    ├── decisions.md    Per-component reasoning and learning notes
+    └── cost-model.md   AWS cost breakdown + optimisation levers
+```
