@@ -1,4 +1,4 @@
-# ADR-007: Network Security and Defense-in-Depth Strategy
+# ADR-008: Network Security and Defense-in-Depth Strategy
 
 **Date:** 2026-05-05
 **Status:** Accepted

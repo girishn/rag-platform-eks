@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(domain:aws.amazon.com)"
+      "WebFetch(domain:aws.amazon.com)",
+      "Bash(git mv *)",
+      "Bash(sed -i \"s/ADR-006/ADR-007/g; s/ADR-005/ADR-006/g; s/ADR-004/ADR-005/g; s/ADR-003/ADR-004/g; s/ADR-002/ADR-003/g; s/ADR-001/ADR-002/g\" docs/adr/README.md)",
+      "Bash(sed -i \"s/ADR-006/ADR-007/g\" docs/architecture/07-multi-tenancy.md)",
+      "Bash(sed -i \"s/ADR-006/ADR-007/g; s/ADR-005/ADR-006/g; s/ADR-004/ADR-005/g; s/ADR-003/ADR-004/g; s/ADR-002/ADR-003/g; s/ADR-001/ADR-002/g\" README.md)"
     ]
   }
 }

@@ -61,12 +61,12 @@ _Ingestion pipeline (not shown): S3 → chunk → Titan embed → pgvector upser
 
 | Decision | ADR |
 |---|---|
-| LiteLLM as dual-provider router (Bedrock primary, vLLM fallback) | [ADR-001](docs/adr/ADR-001-llm-routing-strategy.md) |
-| pgvector on RDS over Weaviate or OpenSearch | [ADR-002](docs/adr/ADR-002-vector-database-selection.md) |
-| AWS Gateway API Controller (VPC Lattice) over Kong or Envoy | [ADR-003](docs/adr/ADR-003-gateway-api-controller.md) |
-| EKS Pod Identity over IRSA for application IAM | [ADR-004](docs/adr/ADR-004-eks-pod-identity-over-irsa.md) |
-| vLLM over SageMaker or Triton for GPU inference | [ADR-005](docs/adr/ADR-005-vllm-model-serving.md) |
-| Namespace + schema + virtual key as three-layer tenant isolation | [ADR-006](docs/adr/ADR-006-multi-tenant-isolation-model.md) |
+| LiteLLM as dual-provider router (Bedrock primary, vLLM fallback) | [ADR-002](docs/adr/ADR-002-llm-routing-strategy.md) |
+| pgvector on RDS over Weaviate or OpenSearch | [ADR-003](docs/adr/ADR-003-vector-database-selection.md) |
+| AWS Gateway API Controller (VPC Lattice) over Kong or Envoy | [ADR-004](docs/adr/ADR-004-gateway-api-controller.md) |
+| EKS Pod Identity over IRSA for application IAM | [ADR-005](docs/adr/ADR-005-eks-pod-identity-over-irsa.md) |
+| vLLM over SageMaker or Triton for GPU inference | [ADR-006](docs/adr/ADR-006-vllm-model-serving.md) |
+| Namespace + schema + virtual key as three-layer tenant isolation | [ADR-007](docs/adr/ADR-007-multi-tenant-isolation-model.md) |
 | ALB → VPC Lattice ingress, VPC endpoints, Client VPN admin access, NetworkPolicies, KMS | [ADR-007](docs/adr/ADR-007-network-security-and-defense-in-depth.md) |
 
 ---

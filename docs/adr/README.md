@@ -8,13 +8,14 @@ changes, a new ADR supersedes the old one.
 
 | ADR | Title | Status | Date |
 |---|---|---|---|
-| [ADR-001](ADR-001-llm-routing-strategy.md) | LiteLLM as dual-provider LLM router (Bedrock primary, vLLM fallback) | Accepted | 2026-05-04 |
-| [ADR-002](ADR-002-vector-database-selection.md) | pgvector on RDS PostgreSQL as the vector store | Accepted | 2026-05-04 |
-| [ADR-003](ADR-003-gateway-api-controller.md) | AWS Gateway API Controller (VPC Lattice) over Kong or Envoy Gateway | Accepted | 2026-05-04 |
-| [ADR-004](ADR-004-eks-pod-identity-over-irsa.md) | EKS Pod Identity over IRSA for application workload IAM | Accepted | 2026-05-04 |
-| [ADR-005](ADR-005-vllm-model-serving.md) | vLLM over SageMaker or Triton for self-hosted GPU inference | Accepted | 2026-05-04 |
-| [ADR-006](ADR-006-multi-tenant-isolation-model.md) | Three-layer tenant isolation model (namespace + schema + virtual key) | Accepted | 2026-05-04 |
-| [ADR-007](ADR-007-network-security-and-defense-in-depth.md) | Network security and defense-in-depth strategy (ALB ingress, VPC endpoints, Client VPN, NetworkPolicies, KMS) | Accepted | 2026-05-05 |
+| [ADR-001](ADR-001-custom-rag-pipeline-vs-managed-service.md) | Custom RAG pipeline over Bedrock Knowledge Bases or framework abstraction | Accepted | 2026-05-05 |
+| [ADR-002](ADR-002-llm-routing-strategy.md) | LiteLLM as dual-provider LLM router (Bedrock primary, vLLM fallback) | Accepted | 2026-05-04 |
+| [ADR-003](ADR-003-vector-database-selection.md) | pgvector on RDS PostgreSQL as the vector store | Accepted | 2026-05-04 |
+| [ADR-004](ADR-004-gateway-api-controller.md) | AWS Gateway API Controller (VPC Lattice) over Kong or Envoy Gateway | Accepted | 2026-05-04 |
+| [ADR-005](ADR-005-eks-pod-identity-over-irsa.md) | EKS Pod Identity over IRSA for application workload IAM | Accepted | 2026-05-04 |
+| [ADR-006](ADR-006-vllm-model-serving.md) | vLLM over SageMaker or Triton for self-hosted GPU inference | Accepted | 2026-05-04 |
+| [ADR-007](ADR-007-multi-tenant-isolation-model.md) | Three-layer tenant isolation model (namespace + schema + virtual key) | Accepted | 2026-05-04 |
+| [ADR-008](ADR-008-network-security-and-defense-in-depth.md) | Network security and defense-in-depth strategy | Accepted | 2026-05-05 |
 
 ## How to write an ADR
 

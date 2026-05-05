@@ -118,17 +118,55 @@ is filtered, not just the user query. Trade-off: adds ~50ms latency.
 
 ### Gateway API
 
-**HTTPRoute traffic splitting:** 90/10 weight split between two RAG API versions is 5 lines of
-YAML in an HTTPRoute manifest. With the old Ingress model this required Nginx annotations and
-was not portable. With Gateway API it is part of the spec and controller-agnostic.
+**Routing split — ALB for external, VPC Lattice for internal/admin only:**
+VPC Lattice has a hard 1-minute idle connection timeout and ambiguous streaming behaviour —
+it is unsuitable for SSE responses from an LLM backend where a slow context or queued request
+can stall token delivery. The external path is therefore ALB → RAG API pod directly via
+`TargetGroupBinding` (AWS Load Balancer Controller). ALB idle timeout is set to 300s in
+Terraform, giving enough headroom for long completions.
+
+VPC Lattice remains for admin routing (Grafana HTTPRoute) and internal service policy
+enforcement. IAM AuthPolicy at the route level still applies to those non-streaming paths.
+
+**Traffic splitting for canary deployments:** Since VPC Lattice is not in the external path,
+canary splits for the RAG API use ALB weighted target groups (two `TargetGroupBinding` objects
+with weights set on the ALB listener rule). HTTPRoute weight splits still apply to the
+VPC Lattice-managed internal routes.
 
 **VPC Lattice vs ALB:** VPC Lattice routes traffic at the AWS network layer before it reaches
-the pod network. This means TLS termination and IAM auth happen outside the cluster, reducing
-the blast radius of a compromised pod.
+the pod network, which means IAM AuthPolicy applies before any pod code runs. This benefit is
+preserved for admin routes. It is intentionally not used on the hot streaming path.
 
 ---
 
 ## Ingestion Pipeline (Week 4)
+
+### Document parsing strategy
+
+**Two-tier approach: `unstructured` library + Amazon Textract.**
+
+`unstructured` handles all native-digital formats (PDF with text layer, DOCX, PPTX, XLSX, HTML,
+Markdown, CSV, RTF) via a single `partition()` call. It auto-detects the format from the file
+extension hint passed via `metadata_filename` and returns semantically meaningful elements
+(paragraphs, tables, list items) rather than raw bytes — better chunking input than a flat
+byte stream.
+
+Textract handles two cases:
+- **Image files** (JPEG, PNG, TIFF): synchronous `detect_document_text` call, result returned inline.
+- **Scanned PDFs**: detected when `unstructured` returns fewer than 200 chars from a `.pdf`
+  (indicating no text layer). Falls back to `start_document_text_detection` (async, S3 source),
+  polling every 5 seconds until the job completes. The document is already in S3 so no re-upload
+  is needed — Textract reads it directly via the S3 key.
+
+Why not Textract for everything: Textract charges per page ($0.0015/page for native PDF,
+$0.065/page with OCR). `unstructured` is free for native-digital documents. The fallback-only
+pattern minimises Textract cost to genuinely scanned content.
+
+The IAM role for the ingestion pod requires `textract:DetectDocumentText`,
+`textract:StartDocumentTextDetection`, and `textract:GetDocumentTextDetection`.
+
+Unsupported formats (e.g. `.mp4`, `.zip`) log a warning and are skipped — the pipeline
+continues to the next document rather than crashing.
 
 ### Chunking strategy
 
@@ -148,6 +186,27 @@ improving ingestion throughput and reducing cost.
 ---
 
 ## Observability (Week 4)
+
+### Structured logging with trace ID correlation
+
+X-Ray traces show latency breakdown and error location per request, but not the application
+detail behind a failed span (which chunks were retrieved, what error the service threw, etc.).
+To bridge traces and logs, every log line emitted while an OTEL span is active includes
+`trace_id` and `span_id` as structured JSON fields.
+
+In CloudWatch Logs Insights, a slow or failed X-Ray trace can be drilled into immediately:
+```
+fields @message | filter trace_id = "1-abc123..."
+```
+
+Implementation: `src/rag_api/logging_config.py` — a `logging.Formatter` subclass that calls
+`opentelemetry.trace.get_current_span().get_span_context()` on each record. Because
+`FastAPIInstrumentor` creates a span per HTTP request before any handler code runs, every log
+line inside a request handler automatically carries the correct trace/span context.
+
+The `trace_id` in logs is raw 32-char hex. The ADOT Collector converts OTEL trace IDs to
+X-Ray format (`1-{8hex}-{24hex}`) when exporting — so the CloudWatch Logs trace_id value
+matches what X-Ray displays after stripping the `1-` prefix and dash.
 
 ### Four golden signals mapping
 

@@ -3,7 +3,7 @@ import asyncio
 import logging
 import os
 
-from src.ingestion.pipeline import run_pipeline
+from src.ingestion.pipeline import CHUNK_OVERLAP, CHUNK_SIZE, EMBED_BATCH_SIZE, run_pipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -14,7 +14,10 @@ def main() -> None:
     s3_bucket = os.environ["S3_BUCKET"]
     s3_prefix = os.environ.get("S3_PREFIX", f"{tenant_id}/raw/")
 
-    logger.info("Starting ingestion for tenant=%s bucket=%s prefix=%s", tenant_id, s3_bucket, s3_prefix)
+    logger.info(
+        "Starting ingestion tenant=%s bucket=%s prefix=%s chunk_size=%d overlap=%d embed_batch=%d",
+        tenant_id, s3_bucket, s3_prefix, CHUNK_SIZE, CHUNK_OVERLAP, EMBED_BATCH_SIZE,
+    )
     asyncio.run(run_pipeline(tenant_id=tenant_id, s3_bucket=s3_bucket, s3_prefix=s3_prefix))
     logger.info("Ingestion complete")
 

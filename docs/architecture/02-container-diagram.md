@@ -8,6 +8,11 @@ The diagram uses two horizontal rows inside the EKS boundary to separate concern
 edges directional: the **query path** (top row) handles real-time requests; the **ingestion and
 observability** path (bottom row) handles background pipeline and monitoring.
 
+**Routing split:** ALB connects directly to the RAG API, bypassing VPC Lattice on the external
+streaming path. VPC Lattice (Gateway API Controller) handles admin routing only (Grafana) and
+internal service policy enforcement. This avoids VPC Lattice's 1-minute idle timeout, which
+is incompatible with SSE streaming for long LLM responses.
+
 Prometheus scrapes `/metrics` from all services (RAG API, LiteLLM, vLLM) — this scrape-back
 relationship is omitted from the diagram to avoid backwards edges cluttering the layout.
 
@@ -47,13 +52,15 @@ flowchart LR
         CW[CloudWatch\nX-Ray]
     end
 
-    %% Ingress
+    %% External ingress — ALB direct to RAG API (SSE streaming safe)
     User -->|HTTPS| ALB
+    ALB --> RAG
+
+    %% Admin path — VPC Lattice for non-streaming internal access only
     Admin --> VPN
-    ALB & VPN --> Lattice
+    VPN --> Lattice
 
     %% Query path
-    Lattice --> RAG
     RAG --> LiteLLM
     RAG -->|embed + guardrails| Bedrock
     RAG -->|ANN search| RDS

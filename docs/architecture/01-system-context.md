@@ -25,7 +25,7 @@ C4Context
   Person(admin, "Platform Admin", "Manages tenants, budget caps, model routing config, and observability dashboards — kubectl via public EKS endpoint + port-forward for UI; Client VPN + IAM Identity Center for enterprise private-endpoint hardening")
 
   System_Boundary(platform, "RAG Platform on EKS (ap-southeast-2)") {
-    System(alb, "Internet-Facing ALB", "TLS termination via ACM; forwards to VPC Lattice")
+    System(alb, "Internet-Facing ALB", "TLS termination via ACM; forwards directly to RAG API — SSE streaming safe (idle_timeout=300s)")
     System(rag, "RAG Platform", "Multi-tenant LLM-powered retrieval and generation service running on Amazon EKS; all internal routing via VPC Lattice")
   }
 
@@ -38,7 +38,7 @@ C4Context
   System_Ext(trail, "AWS CloudTrail", "Audit log: IAM role assumptions, KMS key usage, S3 data access, EKS API calls")
 
   Rel(user, alb, "POST /v1/chat/completions", "HTTPS / TLS via ACM")
-  Rel(alb, rag, "Forward to VPC Lattice", "HTTP/2 private")
+  Rel(alb, rag, "Forward directly to RAG API", "HTTP/1.1 chunked — SSE streaming")
   Rel(admin, vpn, "Connect via IAM Identity Center", "HTTPS / mTLS")
   Rel(vpn, rag, "Access Grafana, LiteLLM admin, kubectl", "Private VPC — IAM AuthPolicy enforced")
   Rel(rag, bedrock, "LLM inference + embeddings + guardrails", "VPC Interface Endpoint — no internet")

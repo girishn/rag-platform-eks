@@ -96,12 +96,12 @@ rag-platform-eks/
     ├── adr/                            # Architecture Decision Records (immutable log)
     │   ├── README.md                   # ADR index and status summary
     │   ├── _template.md                # Blank ADR template
-    │   ├── ADR-001-llm-routing-strategy.md
-    │   ├── ADR-002-vector-database-selection.md
-    │   ├── ADR-003-gateway-api-controller.md
-    │   ├── ADR-004-eks-pod-identity-over-irsa.md
-    │   ├── ADR-005-vllm-model-serving.md
-    │   └── ADR-006-multi-tenant-isolation-model.md
+    │   ├── ADR-002-llm-routing-strategy.md
+    │   ├── ADR-003-vector-database-selection.md
+    │   ├── ADR-004-gateway-api-controller.md
+    │   ├── ADR-005-eks-pod-identity-over-irsa.md
+    │   ├── ADR-006-vllm-model-serving.md
+    │   └── ADR-007-multi-tenant-isolation-model.md
     │
     ├── architecture/                   # Mermaid diagrams — all diagrams live here
     │   ├── 01-system-context.md        # C4 Level 1: external users + system boundary
@@ -305,12 +305,13 @@ What becomes easier or harder? What risks does this introduce?
 
 | ADR | Decision |
 |---|---|
-| ADR-001 | LiteLLM as dual-provider LLM router (Bedrock primary, vLLM fallback) |
-| ADR-002 | pgvector on RDS over Weaviate or OpenSearch as vector store |
-| ADR-003 | AWS Gateway API Controller over Kong or Envoy Gateway |
-| ADR-004 | EKS Pod Identity over IRSA for application workload IAM |
-| ADR-005 | vLLM over SageMaker or Triton for self-hosted GPU inference |
-| ADR-006 | Namespace + schema + virtual key as the three-layer tenant isolation model |
+| ADR-001 | Custom RAG pipeline over Bedrock Knowledge Bases or framework abstraction |
+| ADR-002 | LiteLLM as dual-provider LLM router (Bedrock primary, vLLM fallback) |
+| ADR-003 | pgvector on RDS over Weaviate or OpenSearch as vector store |
+| ADR-004 | AWS Gateway API Controller over Kong or Envoy Gateway |
+| ADR-005 | EKS Pod Identity over IRSA for application workload IAM |
+| ADR-006 | vLLM over SageMaker or Triton for self-hosted GPU inference |
+| ADR-007 | Namespace + schema + virtual key as the three-layer tenant isolation model |
 
 ---
 
@@ -526,7 +527,7 @@ and deliberate exercises that go beyond getting it to work.
 - Understand the full Karpenter NodePool lifecycle: pending pod → node provisioned →
   workload scheduled → node consolidated. Read the `karpenter.sh/v1` API spec, not tutorials.
 - Understand why Pod Identity is architecturally better than IRSA: no per-cluster OIDC,
-  reusable roles, ABAC via session tags. Write ADR-004 before provisioning anything.
+  reusable roles, ABAC via session tags. Write ADR-005 before provisioning anything.
 - Understand EKS add-on version pinning vs `most_recent = true` and why it matters in prod.
 
 **Deliberate exercises:**
@@ -606,7 +607,7 @@ The `README.md` is a portfolio document as much as a technical guide. It must co
 1. **Problem statement** — one paragraph: what problem does this platform solve?
 2. **Architecture diagram** — embed the rendered Mermaid container diagram or link to it.
 3. **Key engineering decisions** — bullet list linking to ADRs. Example:
-   _"Why vLLM over SageMaker? [ADR-005](docs/adr/ADR-005-vllm-model-serving.md)"_
+   _"Why vLLM over SageMaker? [ADR-006](docs/adr/ADR-006-vllm-model-serving.md)"_
    This signals architectural thinking, not just implementation ability.
 4. **Operational maturity signals** — mention runbooks, cost model, and observability dashboards.
 5. **Honest status table** — what is implemented vs in progress. Unfinished items with reasoning

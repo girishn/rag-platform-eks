@@ -42,6 +42,11 @@ No Ingress NGINX, no Kong, no standalone Envoy deployment.
   VPC Lattice service network logs in CloudWatch.
 - Not portable off AWS: `GatewayClass: amazon-vpc-lattice` is AWS-specific. A cloud-agnostic
   migration would need to swap the controller and GatewayClass only (HTTPRoute manifests are portable).
+- **VPC Lattice cannot be in the SSE streaming path.** It has a hard 1-minute idle timeout and
+  ambiguous response-buffering behaviour for chunked/streaming responses. The external RAG API
+  path therefore uses ALB → pod directly (TargetGroupBinding). VPC Lattice is scoped to admin
+  routing (Grafana) and internal service policy enforcement only. Traffic splitting for RAG API
+  canary deployments uses ALB weighted target groups, not HTTPRoute weights.
 
 **Risks:**
 - VPC Lattice pricing ($0.0025/LCU) can surprise at high request volume. Monitor via CloudWatch

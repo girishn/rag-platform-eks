@@ -1,4 +1,4 @@
-# ADR-001: LiteLLM as Dual-Provider LLM Router (Bedrock Primary, vLLM Fallback)
+# ADR-002: LiteLLM as Dual-Provider LLM Router (Bedrock Primary, vLLM Fallback)
 
 **Date:** 2026-05-04
 **Status:** Accepted

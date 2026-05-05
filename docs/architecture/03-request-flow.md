@@ -7,18 +7,17 @@ path and the vLLM fallback path.
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant A as ALB (ACM TLS)
-    participant G as Gateway (VPC Lattice)
+    participant A as ALB (ACM TLS · idle_timeout=300s)
     participant R as RAG API (FastAPI)
     participant P as pgvector (RDS)
     participant L as LiteLLM Proxy
+    participant Redis as ElastiCache Redis
     participant B as AWS Bedrock
     participant V as vLLM (EKS GPU)
     participant ADOT as ADOT Collector
 
     C->>A: HTTPS POST /v1/chat/completions
-    A->>G: HTTP (TLS terminated at ALB)
-    G->>R: HTTPRoute match → forward
+    A->>R: HTTP — direct to RAG API pod (SSE streaming safe)
 
     %% Query embedding
     R->>B: Titan embed(query_text)
@@ -31,9 +30,11 @@ sequenceDiagram
     %% Prompt assembly
     R->>R: Assemble system prompt + context chunks + user query
 
-    %% LLM routing
+    %% LLM routing — key validation via Redis cache
     R->>L: POST /v1/chat/completions (assembled prompt + tenant virtual key)
-    L->>L: Check virtual key budget — within limit
+    L->>Redis: GET key_hash (budget + RPM metadata)
+    Redis-->>L: cached key metadata (or cache miss → query litellm DB on RDS)
+    L->>L: Validate budget + RPM — within limit
 
     alt Bedrock available
         L->>B: InvokeModelWithResponseStream — Claude 3.5 Sonnet
@@ -48,8 +49,9 @@ sequenceDiagram
 
     R-->>C: Streamed response (SSE)
 
-    %% Async observability
+    %% Async observability + spend tracking
     R-)ADOT: OTLP span export (end-to-end trace, embedding latency, retrieval latency)
     L-)ADOT: OTLP span export (routing decision, token count, backend selected)
-    L-)P: Flush spend record (tokens, cost, tenant_id) — batched async
+    L-)Redis: INCRBYFLOAT spend (tenant_id, tokens, cost) — atomic increment
+    L-)P: Flush spend to litellm DB — batched async (periodic)
 ```

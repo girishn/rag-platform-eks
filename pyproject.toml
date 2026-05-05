@@ -16,6 +16,8 @@ dependencies = [
     # Database
     "asyncpg>=0.30.0",
     "pgvector>=0.3.0",
+    # Document parsing
+    "unstructured[pdf,docx,pptx,xlsx]>=0.15.0",
     # Observability
     "opentelemetry-sdk>=1.28.0",
     "opentelemetry-exporter-otlp-proto-grpc>=1.28.0",

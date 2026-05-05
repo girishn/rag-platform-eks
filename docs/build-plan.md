@@ -40,7 +40,7 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 ### IAM (Pod Identity)
 - [ ] `terraform/iam/` — Pod Identity role: rag-api (Bedrock, S3, RDS IAM auth, SSM)
 - [ ] `terraform/iam/` — Pod Identity role: litellm (RDS IAM auth, ElastiCache Connect, Secrets Manager read)
-- [ ] `terraform/iam/` — Pod Identity role: ingestion (Bedrock, S3, RDS IAM auth)
+- [ ] `terraform/iam/` — Pod Identity role: ingestion (Bedrock, S3, RDS IAM auth, Textract)
 - [ ] `terraform/iam/` — Pod Identity role: vllm (S3 read for model weights)
 - [ ] Deliberately exercise: exec into pod → `aws sts get-caller-identity` → verify role ARN
 - [ ] Deliberately exercise: delete association → verify exact SDK error message
@@ -93,9 +93,11 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 ### Gateway
 - [ ] `k8s/gateway/` — GatewayClass (amazon-vpc-lattice)
 - [ ] `k8s/gateway/` — Gateway resource
-- [ ] `k8s/gateway/` — HTTPRoute → rag-api service
-- [ ] `k8s/gateway/` — AuthPolicy (IAM-based tenant auth)
-- [ ] Deliberately exercise: traffic weight split 90/10 → verify in Prometheus
+- [ ] `k8s/gateway/` — HTTPRoute → Grafana (admin access via VPC Lattice, non-streaming)
+- [ ] `k8s/gateway/` — AuthPolicy (IAM-based auth on admin routes)
+- [ ] `k8s/gateway/` — TargetGroupBinding for RAG API (ALB → pod direct, SSE streaming path)
+- [ ] `terraform/eks/` or `helm/rag-api/` — ALB `idle_timeout = 300` (LLM streaming headroom)
+- [ ] Deliberately exercise: ALB weighted target groups 90/10 split → verify routing in Prometheus
 - [ ] Deliberately exercise: wrong vector_dims → observe error → understand migration path
 
 ---
