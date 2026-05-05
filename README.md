@@ -44,8 +44,9 @@ flowchart LR
 
     User -->|HTTPS| ALB
     Admin --> VPN
-    ALB & VPN --> Lattice
-    Lattice --> RAG & Obs
+    ALB -->|direct · SSE safe| RAG
+    VPN --> Lattice
+    Lattice --> Obs
     RAG --> LiteLLM
     RAG -->|embed| Bedrock
     RAG -->|ANN| RDS
@@ -61,13 +62,14 @@ _Ingestion pipeline (not shown): S3 → chunk → Titan embed → pgvector upser
 
 | Decision | ADR |
 |---|---|
+| Custom RAG pipeline over Bedrock Knowledge Bases or framework abstraction | [ADR-001](docs/adr/ADR-001-custom-rag-pipeline-vs-managed-service.md) |
 | LiteLLM as dual-provider router (Bedrock primary, vLLM fallback) | [ADR-002](docs/adr/ADR-002-llm-routing-strategy.md) |
 | pgvector on RDS over Weaviate or OpenSearch | [ADR-003](docs/adr/ADR-003-vector-database-selection.md) |
 | AWS Gateway API Controller (VPC Lattice) over Kong or Envoy | [ADR-004](docs/adr/ADR-004-gateway-api-controller.md) |
 | EKS Pod Identity over IRSA for application IAM | [ADR-005](docs/adr/ADR-005-eks-pod-identity-over-irsa.md) |
 | vLLM over SageMaker or Triton for GPU inference | [ADR-006](docs/adr/ADR-006-vllm-model-serving.md) |
 | Namespace + schema + virtual key as three-layer tenant isolation | [ADR-007](docs/adr/ADR-007-multi-tenant-isolation-model.md) |
-| ALB → VPC Lattice ingress, VPC endpoints, Client VPN admin access, NetworkPolicies, KMS | [ADR-007](docs/adr/ADR-007-network-security-and-defense-in-depth.md) |
+| ALB → RAG direct (streaming), VPC Lattice admin only, VPC endpoints, NetworkPolicies, KMS | [ADR-008](docs/adr/ADR-008-network-security-and-defense-in-depth.md) |
 
 ---
 
@@ -84,7 +86,7 @@ _Ingestion pipeline (not shown): S3 → chunk → Titan embed → pgvector upser
 | Vector store | pgvector on RDS PostgreSQL (HNSW index, per-tenant schemas) |
 | Document store | S3 (raw docs, chunked text, model weights) |
 | Ingestion | Kubernetes CronJob (chunking → Titan embed → pgvector upsert) |
-| Observability | Prometheus + Grafana + OpenTelemetry Collector + CloudWatch X-Ray |
+| Observability | Prometheus + Grafana + ADOT Collector (EKS managed add-on) + CloudWatch X-Ray |
 | IaC | Terraform (terraform-aws-modules/eks, eks-blueprints-addons) |
 | AWS auth | EKS Pod Identity for all application workloads |
 | Language | Python 3.13 + uv |
@@ -105,7 +107,7 @@ _Ingestion pipeline (not shown): S3 → chunk → Titan embed → pgvector upser
 
 | Component | Status |
 |---|---|
-| ADRs (7) | Done |
+| ADRs (8) | Done |
 | Architecture diagrams (8) | Done |
 | Runbooks (4) | Done |
 | Cost model | Done |

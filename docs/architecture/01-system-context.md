@@ -30,7 +30,7 @@ C4Context
   }
 
   System_Ext(vpn, "AWS Client VPN", "Enterprise hardening: admin access to private-endpoint-only cluster via IAM Identity Center SSO. Dev workflow uses public EKS endpoint + kubectl + port-forward instead — no VPN required.")
-  System_Ext(bedrock, "AWS Bedrock", "Claude 3.5 Sonnet (LLM) + Titan Embeddings V2 + Guardrails — primary inference backend; reached via VPC Interface Endpoint")
+  System_Ext(bedrock, "AWS Bedrock", "Claude 3.5 Sonnet (LLM) + Titan Embeddings V2 + Bedrock Guardrails (phase 2) — primary inference backend; reached via VPC Interface Endpoint")
   System_Ext(s3, "Amazon S3", "Raw document storage, chunked text, embedding metadata, and vLLM model weights; SSE-KMS encrypted; TLS-only bucket policy")
   System_Ext(rds, "Amazon RDS (PostgreSQL)", "pgvector for HNSW vector similarity search; per-tenant schema isolation; KMS encrypted; SSL required")
   System_Ext(cw, "Amazon CloudWatch", "Metrics ingestion, X-Ray distributed traces, alerting; reached via VPC Interface Endpoint")

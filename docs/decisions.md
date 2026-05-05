@@ -114,6 +114,34 @@ is filtered, not just the user query. Trade-off: adds ~50ms latency.
 - _[Fill in after Week 3]_ Retrieval recall at k=3/5/10: ...
 - _[Fill in]_ Effect of ef_search tuning on recall vs latency: ...
 
+### Phase 2: Agentic RAG
+
+The phase 1 pipeline is deliberately linear: one retrieval pass, fixed prompt assembly, LLM
+as a pure generator. It handles factual single-step queries well but fails on questions that
+require multiple retrieval steps or external actions — e.g. "compare Q3 results across all
+tenant reports and calculate the aggregate."
+
+**Why the current design is the right foundation for adding this later:**
+LiteLLM already supports tool/function calling (passed through to Bedrock Claude and vLLM
+Llama if the model supports it). pgvector retrieval is already a callable service. The only
+change needed is in `routers/chat.py` — replacing the linear pipeline with a loop that lets
+the model decide when to retrieve, what to retrieve, and when it has enough context to answer.
+
+**Planned patterns (phase 2, in order of complexity):**
+
+1. **Iterative retrieval (corrective RAG):** after the first retrieval, ask the LLM to assess
+   whether the context is sufficient. If not, it reformulates the query and retrieves again.
+   Caps at N rounds to prevent infinite loops.
+
+2. **Sub-question decomposition:** for multi-part questions, decompose into sub-queries via an
+   LLM call, retrieve independently for each, then pass all context to the final synthesis call.
+   Pairs naturally with multi-turn chat (also phase 2).
+
+3. **Tool use beyond retrieval:** define tools as LiteLLM function schemas — e.g. a SQL
+   aggregation tool, a calculator, an external API. The LLM decides which tool to call based
+   on the query. This is what Bedrock Agents provides as a managed service; here it's
+   implemented in application code, which gives full observability and no service limits.
+
 ---
 
 ### Gateway API
@@ -217,7 +245,7 @@ matches what X-Ray displays after stripping the `1-` prefix and dash.
 | Errors | `rag_api_requests_total{status="5xx"}` | RAG API `/metrics` |
 | Saturation | `vllm:num_requests_waiting` | vLLM `/metrics` |
 
-### OTEL Collector distribution
+### ADOT Collector distribution
 
 **Decision: AWS Distro for OpenTelemetry (ADOT)**, deployed as an EKS managed add-on via
 `terraform/addons/`. CloudWatch X-Ray is the sole trace destination — no Grafana Tempo.

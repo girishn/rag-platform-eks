@@ -57,6 +57,21 @@ dependency (LlamaIndex, LangChain, Haystack).
   replacing the core pipeline.
 - Adding Bedrock Knowledge Bases as a second retrieval backend if a use case arises that fits
   its model (e.g. a tenant with simple, low-volume needs).
+- **Agentic RAG (phase 2):** The current pipeline is linear and deterministic — one retrieval
+  pass, fixed prompt assembly, LLM as pure generator. This is intentional for phase 1 (simple,
+  observable, debuggable). The custom pipeline is the right foundation for adding agentic
+  patterns precisely because the LLM call goes through LiteLLM, which supports function/tool
+  calling. Phase 2 options include:
+  - **Iterative retrieval:** the LLM decides whether retrieved context is sufficient and
+    triggers additional retrieval rounds if not, rather than the pipeline doing one fixed pass.
+  - **Sub-question decomposition:** complex queries are broken into sub-questions, each
+    retrieved independently, then synthesised.
+  - **Tool use:** the LLM is given tools beyond the vector store (SQL queries, calculations,
+    API calls) and decides when and how to invoke them.
+  None of these require replacing any infrastructure — LiteLLM, pgvector, and the FastAPI
+  request handler already support the pattern. The change is entirely in the routing logic
+  inside `routers/chat.py`. A managed service like Bedrock Knowledge Bases cannot be extended
+  this way.
 
 ## References
 

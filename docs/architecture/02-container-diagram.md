@@ -38,7 +38,7 @@ flowchart LR
         subgraph opspath["Ingestion · Observability"]
             direction LR
             Ingest[Ingestion\nCronJob]
-            OTEL[OTEL\nCollector]
+            ADOT[ADOT Collector\nOTLP → X-Ray]
             Prom[Prometheus]
             Graf[Grafana]
         end
@@ -64,18 +64,18 @@ flowchart LR
     RAG --> LiteLLM
     RAG -->|embed + guardrails| Bedrock
     RAG -->|ANN search| RDS
-    RAG -->|traces| OTEL
+    RAG -->|traces| ADOT
     LiteLLM -->|primary| Bedrock
     LiteLLM -->|fallback| vLLM
     LiteLLM -->|key cache + spend| Redis
     LiteLLM -->|key metadata + spend flush| RDS
-    LiteLLM -->|traces| OTEL
+    LiteLLM -->|traces| ADOT
 
     %% Admin observability access
     Lattice --> Graf
 
     %% Observability outputs
-    OTEL --> CW
+    ADOT --> CW
     Prom --> Graf
 
     %% Ingestion pipeline

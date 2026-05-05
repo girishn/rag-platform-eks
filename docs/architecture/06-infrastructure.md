@@ -1,14 +1,16 @@
 # Infrastructure Diagram
 
 AWS infrastructure topology: VPC layout, EKS node groups, RDS placement, VPC Lattice service
-network, and S3. Shows network boundaries, how internet traffic enters via ALB → VPC Lattice
-(never ALB directly to pods), how pods reach AWS services via VPC endpoints (no NAT for AWS API
-calls), and admin access paths.
+network, and S3. Shows network boundaries, how internet traffic enters via an internet-facing ALB
+directly to RAG API pods (SSE streaming-safe, `idle_timeout=300s`), how VPC Lattice handles admin
+routing only, how pods reach AWS services via VPC endpoints (no NAT for AWS API calls), and admin
+access paths.
 
-VPC Lattice is a **private, VPC-scoped service** used for east-west service-to-service routing
-inside the cluster. It is NOT internet-facing. An internet-facing ALB sits in front, terminates
-TLS, and forwards to VPC Lattice. VPC Lattice is always in the routing path — there is no
-ALB-to-pod bypass.
+VPC Lattice is a **private, VPC-scoped service** used for admin routing (Grafana) and internal
+service policy enforcement. It is NOT in the external request path — VPC Lattice's 1-minute idle
+timeout is incompatible with SSE streaming for long LLM responses. External traffic goes ALB →
+RAG API pods directly via TargetGroupBinding (AWS Load Balancer Controller). There is no
+ALB → VPC Lattice path for the RAG API.
 
 **Admin access — two tiers:**
 - *Dev / single operator:* EKS public+private endpoint enabled. `aws eks update-kubeconfig` from
@@ -45,7 +47,7 @@ graph TB
                     subgraph CPUNodePool["CPU NodePool (AL2023)\nm5.xlarge / m5.2xlarge — Spot+OD"]
                         RAGPod[RAG API Pods\nPod SG: 443 to Bedrock EP\n5432 to RDS SG]
                         LiteLLMPod[LiteLLM Pods\nPod SG: 443 to Bedrock EP]
-                        ObsPods[Prometheus / Grafana / OTEL\nAdmin access via VPN + VPC Lattice]
+                        ObsPods[Prometheus / Grafana / ADOT\nAdmin access via VPN + VPC Lattice]
                     end
                     subgraph GPUNodePool["GPU NodePool (Bottlerocket Accelerated)\ng5.xlarge — Spot with OD fallback"]
                         vLLMPod[vLLM Pods\nA10G GPU]
@@ -91,11 +93,9 @@ graph TB
 
     end
 
-    %% Internet ingress — ALB is the public entry point, NOT VPC Lattice
+    %% Internet ingress — ALB direct to RAG API pods (TargetGroupBinding), bypasses VPC Lattice
     User --> ALB
-    ALB --> VPCLattice
-    VPCLattice --> GatewayCtrl
-    GatewayCtrl --> RAGPod
+    ALB --> RAGPod
 
     %% Admin access — dev path: public EKS endpoint + kubectl port-forward
     Admin --> PublicEP

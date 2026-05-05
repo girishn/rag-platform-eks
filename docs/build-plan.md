@@ -7,7 +7,7 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 
 ## Bootstrap (once only)
 
-- [x] Write all six ADRs in `docs/adr/` before writing any Terraform
+- [x] Write all eight ADRs in `docs/adr/` before writing any Terraform
 - [x] Populate `docs/architecture/` with all eight Mermaid diagrams
 - [x] Write all four runbooks in `docs/runbooks/`
 - [ ] `terraform/bootstrap/` — S3 state bucket + DynamoDB lock table
@@ -140,9 +140,11 @@ is stable and deployed.
 
 | Feature | Notes |
 |---|---|
+| Source references / citations | Return `doc_id` + similarity score from retrieval; label context blocks with source name; instruct LLM to inline-cite using `[N]` notation; append a guaranteed `Sources:` block at end of stream. Two file changes: `retrieval.py` SELECT + `chat.py` prompt assembly. No infrastructure changes. |
 | Multi-turn chat context | Client sends full `messages` array; server uses last-N turns for contextualized retrieval query. See `decisions.md`. |
 | Query rewriting | Haiku call to rewrite user query before embedding. Improves recall on ambiguous queries. Service slot exists in `src/rag_api/routers/chat.py`. |
 | Bedrock Guardrails | Stub exists at `src/rag_api/services/guardrails.py`. Wire Bedrock Guardrails resource + apply/check calls. Adds ~50ms latency. |
 | Per-tenant cost dashboards | LiteLLM `/spend/logs` → Grafana per-tenant spend breakdown. Overall cost dashboard ships in phase 1. |
 | HPA on RAG API + LiteLLM | CPU-based horizontal scaling. KEDA scale-to-zero on vLLM (GPU cost) ships in phase 1. |
 | Client VPN admin path | IAM Identity Center + AWS Client VPN for admin access to internal services. Phase 1 uses `kubectl port-forward` for Grafana access. |
+| Agentic RAG | Iterative retrieval (LLM decides if context is sufficient), sub-question decomposition, tool use beyond vector search. Builds on multi-turn chat. No infrastructure changes needed — change is in `routers/chat.py` only. |

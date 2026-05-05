@@ -96,12 +96,14 @@ rag-platform-eks/
     ├── adr/                            # Architecture Decision Records (immutable log)
     │   ├── README.md                   # ADR index and status summary
     │   ├── _template.md                # Blank ADR template
+    │   ├── ADR-001-custom-rag-pipeline-vs-managed-service.md
     │   ├── ADR-002-llm-routing-strategy.md
     │   ├── ADR-003-vector-database-selection.md
     │   ├── ADR-004-gateway-api-controller.md
     │   ├── ADR-005-eks-pod-identity-over-irsa.md
     │   ├── ADR-006-vllm-model-serving.md
-    │   └── ADR-007-multi-tenant-isolation-model.md
+    │   ├── ADR-007-multi-tenant-isolation-model.md
+    │   └── ADR-008-network-security-and-defense-in-depth.md
     │
     ├── architecture/                   # Mermaid diagrams — all diagrams live here
     │   ├── 01-system-context.md        # C4 Level 1: external users + system boundary
