@@ -36,6 +36,9 @@ budget and rate limits.
 
 **Easier:**
 - Adding new LLM providers (Anthropic direct, OpenAI, Azure) is a config change, not a code change.
+- **Swapping primary and fallback** (e.g. promoting vLLM to primary when Bedrock costs are too high,
+  or during a Bedrock outage) is also a config change — edit `helm/litellm/config.yaml`, run
+  `helm upgrade`, pods roll. No application code changes anywhere in the stack.
 - Per-tenant cost allocation is built-in via `/spend/logs`.
 - Fallback logic is declarative and testable without changing application code.
 

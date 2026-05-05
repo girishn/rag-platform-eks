@@ -21,10 +21,12 @@ No Ingress NGINX, no Kong, no standalone Envoy deployment.
 
 | Option | Pros | Cons |
 |---|---|---|
-| AWS Gateway API Controller (VPC Lattice) | AWS-managed data plane (no pods to maintain), native IAM AuthPolicies, cross-VPC routing without VPN, Gateway API compliant | Newer service; some advanced HTTPRoute features still in preview; VPC Lattice per-request pricing |
+| AWS Gateway API Controller (VPC Lattice) | AWS-managed data plane (no pods to maintain); native IAM AuthPolicies on every HTTPRoute; cross-VPC routing without VPN; Gateway API compliant; aligns with AWS enterprise networking direction | Per-request pricing ($0.0025/LCU); newer service; not portable off AWS |
+| **AWS Load Balancer Controller v2.7+ (ALB)** | Most common EKS Gateway API implementation; provisions ALBs; fixed hourly cost (~$16–22/month) typically cheaper than VPC Lattice at low traffic; battle-tested; HTTPRoute manifests identical | No IAM AuthPolicy at route level (auth requires separate mechanism); no cross-VPC routing; AWS-managed data plane but ALB-specific, not a general service mesh | 
 | Kong Gateway (self-hosted) | Feature-rich, mature, large plugin ecosystem | Another stateful workload; custom CRDs diverge from Gateway API standard; operator overhead |
-| Envoy Gateway | Gateway API compliant, CNCF project, flexible | Self-managed control plane and data plane pods; no AWS-native IAM integration |
-| AWS Load Balancer Controller (ALB) | AWS-managed, well understood | Ingress-based (deprecated path); no native Gateway API support; ALB per-rule pricing |
+| Envoy Gateway | Gateway API compliant, CNCF project, flexible; no per-request AWS charges | Self-managed control plane and data plane pods; no AWS-native IAM integration |
+
+**Note on AWS Load Balancer Controller:** AWS LBC is the most widely used Gateway API controller on EKS and the most direct cost alternative to VPC Lattice. For a single-VPC, single-cluster deployment it covers the same external routing use case at lower cost. VPC Lattice is chosen here because IAM AuthPolicies on HTTPRoutes provide tenant-scoped access control without a separate auth sidecar, and because the platform is designed to demonstrate AWS-native enterprise networking patterns. If IAM AuthPolicies and cross-VPC routing are not requirements, AWS LBC is the simpler and cheaper choice.
 
 ## Consequences
 

@@ -20,37 +20,40 @@ per-tenant data and budget isolation.
 ## Architecture
 
 ```mermaid
-C4Container
-  title Container Diagram — RAG Platform on EKS
+flowchart LR
+    User([User])
+    Admin([Admin])
 
-  Person(user, "Application User")
-  Person(admin, "Platform Admin")
+    subgraph pub["Public"]
+        ALB[ALB\nACM TLS]
+        VPN[Client VPN\nIAM IdC]
+    end
 
-  System_Boundary(eks, "Amazon EKS Cluster") {
-    Container(gateway, "AWS VPC Lattice Gateway", "Gateway API Controller", "Routes external HTTPS via HTTPRoute")
-    Container(rag_api, "RAG API", "FastAPI / Python 3.13", "Query rewriting, embedding, retrieval, prompt assembly, streaming")
-    Container(litellm, "LiteLLM Proxy", "Python", "OpenAI-compatible router: Bedrock primary, vLLM fallback")
-    Container(vllm, "vLLM", "Python / GPU (A10G)", "Self-hosted Llama 3.1 8B; PagedAttention")
-    Container(ingestion, "Ingestion CronJob", "Python", "S3 → chunk → Titan embed → pgvector upsert")
-  }
+    subgraph eks["Amazon EKS · Private Subnets"]
+        Lattice[VPC Lattice\nGateway API]
+        RAG[RAG API\nFastAPI]
+        LiteLLM[LiteLLM\nProxy]
+        vLLM[vLLM · A10G\nLlama 3.1 8B]
+        Obs[Grafana\nPrometheus]
+    end
 
-  System_Ext(bedrock, "AWS Bedrock", "Claude 3.5 Sonnet + Titan Embeddings + Guardrails")
-  System_Ext(rds, "RDS pgvector", "Per-tenant HNSW vector index")
-  System_Ext(s3, "Amazon S3", "Documents + model weights")
+    subgraph aws["AWS Backend · VPC Endpoints"]
+        Bedrock[Bedrock\nClaude 3.5 · Titan V2]
+        RDS[(RDS\npgvector)]
+    end
 
-  Rel(user, gateway, "POST /v1/chat/completions", "HTTPS")
-  Rel(gateway, rag_api, "HTTPRoute", "HTTP/2")
-  Rel(rag_api, bedrock, "Embed + Guardrails", "AWS SDK")
-  Rel(rag_api, rds, "ANN search", "PostgreSQL")
-  Rel(rag_api, litellm, "LLM completion", "HTTP")
-  Rel(litellm, bedrock, "Primary", "AWS SDK")
-  Rel(litellm, vllm, "Fallback", "HTTP")
-  Rel(ingestion, s3, "Read docs", "AWS SDK")
-  Rel(ingestion, bedrock, "Embed chunks", "AWS SDK")
-  Rel(ingestion, rds, "Upsert vectors", "PostgreSQL")
+    User -->|HTTPS| ALB
+    Admin --> VPN
+    ALB & VPN --> Lattice
+    Lattice --> RAG & Obs
+    RAG --> LiteLLM
+    RAG -->|embed| Bedrock
+    RAG -->|ANN| RDS
+    LiteLLM -->|primary| Bedrock
+    LiteLLM -->|fallback| vLLM
 ```
 
-Full diagrams in [`docs/architecture/`](docs/architecture/).
+_Ingestion pipeline (not shown): S3 → chunk → Titan embed → pgvector upsert. Full diagrams in [`docs/architecture/`](docs/architecture/)._
 
 ---
 
@@ -64,6 +67,7 @@ Full diagrams in [`docs/architecture/`](docs/architecture/).
 | EKS Pod Identity over IRSA for application IAM | [ADR-004](docs/adr/ADR-004-eks-pod-identity-over-irsa.md) |
 | vLLM over SageMaker or Triton for GPU inference | [ADR-005](docs/adr/ADR-005-vllm-model-serving.md) |
 | Namespace + schema + virtual key as three-layer tenant isolation | [ADR-006](docs/adr/ADR-006-multi-tenant-isolation-model.md) |
+| ALB → VPC Lattice ingress, VPC endpoints, Client VPN admin access, NetworkPolicies, KMS | [ADR-007](docs/adr/ADR-007-network-security-and-defense-in-depth.md) |
 
 ---
 
@@ -101,7 +105,7 @@ Full diagrams in [`docs/architecture/`](docs/architecture/).
 
 | Component | Status |
 |---|---|
-| ADRs (6) | Done |
+| ADRs (7) | Done |
 | Architecture diagrams (8) | Done |
 | Runbooks (4) | Done |
 | Cost model | Done |
