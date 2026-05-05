@@ -59,7 +59,8 @@ rag-platform-eks/
 ├── terraform/
 │   ├── bootstrap/                      # S3 state bucket + DynamoDB lock — run once only
 │   ├── eks/                            # Cluster, VPC, Karpenter, EKS add-ons
-│   ├── rds/                            # RDS PostgreSQL + pgvector extension
+│   ├── rds/                            # RDS PostgreSQL + pgvector extension + litellm DB
+│   ├── elasticache/                    # ElastiCache Serverless Redis (LiteLLM key cache)
 │   ├── iam/                            # Pod Identity IAM roles (app workloads only)
 │   └── addons/                         # Gateway API Controller, Prometheus stack, KEDA
 │

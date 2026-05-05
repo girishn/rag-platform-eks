@@ -41,7 +41,8 @@ flowchart LR
 
     subgraph aws["AWS Backend · VPC Endpoints"]
         Bedrock[Bedrock\nClaude 3.5 · Titan V2]
-        RDS[(RDS · pgvector)]
+        RDS[(RDS · pgvector\n+ litellm DB)]
+        Redis[(ElastiCache\nServerless Redis)]
         S3[(S3\ndocs · weights)]
         CW[CloudWatch\nX-Ray]
     end
@@ -59,6 +60,8 @@ flowchart LR
     RAG -->|traces| OTEL
     LiteLLM -->|primary| Bedrock
     LiteLLM -->|fallback| vLLM
+    LiteLLM -->|key cache + spend| Redis
+    LiteLLM -->|key metadata + spend flush| RDS
     LiteLLM -->|traces| OTEL
 
     %% Admin observability access

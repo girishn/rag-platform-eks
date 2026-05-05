@@ -29,10 +29,17 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] `terraform/rds/` — RDS PostgreSQL 16 + pgvector extension
 - [ ] `terraform/rds/` — Parameter group with `shared_preload_libraries = 'pg_vector'`
 - [ ] `terraform/rds/` — Multi-AZ, private subnet group, security group from EKS only
+- [ ] `terraform/rds/` — Create `litellm` database on same RDS instance (isolated from pgvector DB)
 - [ ] Create tenant schemas + HNSW index after cluster is up
+
+### ElastiCache
+- [ ] `terraform/elasticache/` — ElastiCache Serverless for Redis (TLS + IAM auth)
+- [ ] `terraform/elasticache/` — Security group: allow inbound 6379 from LiteLLM pod CIDR only
+- [ ] `terraform/elasticache/` — outputs.tf exposing endpoint for LiteLLM Helm values
 
 ### IAM (Pod Identity)
 - [ ] `terraform/iam/` — Pod Identity role: rag-api (Bedrock, S3, RDS IAM auth, SSM)
+- [ ] `terraform/iam/` — Pod Identity role: litellm (RDS IAM auth, ElastiCache Connect, Secrets Manager read)
 - [ ] `terraform/iam/` — Pod Identity role: ingestion (Bedrock, S3, RDS IAM auth)
 - [ ] `terraform/iam/` — Pod Identity role: vllm (S3 read for model weights)
 - [ ] Deliberately exercise: exec into pod → `aws sts get-caller-identity` → verify role ARN
@@ -61,6 +68,8 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 
 ### LiteLLM
 - [ ] `helm/litellm/` — Deployment + ConfigMap-mounted `config.yaml`
+- [ ] `helm/litellm/` — `DATABASE_URL` from Secrets Manager (points to `litellm` DB on RDS)
+- [ ] `helm/litellm/` — `REDIS_URL` from Secrets Manager (ElastiCache Serverless endpoint, TLS)
 - [ ] `helm/litellm/` — Bedrock primary model group (Claude 3.5 Sonnet)
 - [ ] `helm/litellm/` — vLLM fallback model group
 - [ ] `helm/litellm/` — Virtual key bootstrap script (per-tenant keys with budget)
@@ -76,8 +85,8 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] `src/rag_api/services/embedding.py` — Titan Embeddings V2 client
 - [ ] `src/rag_api/services/retrieval.py` — pgvector HNSW ANN search
 - [ ] `src/rag_api/services/llm_client.py` — LiteLLM passthrough with streaming
-- [ ] `src/rag_api/services/guardrails.py` — Bedrock Guardrails apply/check
-- [ ] `src/rag_api/routers/chat.py` — POST /v1/chat/completions (query rewrite → retrieve → assemble → stream)
+- [ ] `src/rag_api/services/guardrails.py` — pass-through stub (phase 2: wire Bedrock Guardrails)
+- [ ] `src/rag_api/routers/chat.py` — POST /v1/chat/completions (retrieve → assemble → stream)
 - [ ] `src/rag_api/tests/` — pytest with moto for AWS + asyncpg mock
 - [ ] `helm/rag-api/` — Helm chart with Pod Identity service account
 
@@ -101,19 +110,16 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] Run against 1,000 documents → measure throughput → identify bottleneck → document in `decisions.md`
 
 ### Observability
+- [ ] Configure ADOT Collector: OTLP receiver + AWS X-Ray exporter (instrument RAG API and LiteLLM with OTEL SDK)
 - [ ] `dashboards/` — Grafana: latency P50/P95/P99 per endpoint
 - [ ] `dashboards/` — Grafana: GPU utilisation + KV cache usage
 - [ ] `dashboards/` — Grafana: Bedrock vs vLLM routing split
-- [ ] `dashboards/` — Grafana: per-tenant token spend (from LiteLLM /spend/logs)
 - [ ] `dashboards/` — Grafana: four golden signals panel
-- [ ] Configure ADOT Collector: OTLP receiver + AWS X-Ray exporter (instrument RAG API and LiteLLM with OTEL SDK)
 - [ ] AlertManager rules: `num_requests_waiting > 10`, `gpu_cache > 90%`, `fallback_triggered`, `error_rate > 1%`
 - [ ] Deliberately exercise: artificial embedding latency → verify in X-Ray trace → write Prometheus alert
 
 ### Hardening
 - [ ] PodDisruptionBudgets for RAG API, LiteLLM (minAvailable: 1)
-- [ ] HPA on RAG API (CPU + custom metric)
-- [ ] HPA on LiteLLM
 - [ ] Karpenter consolidation policy tuning
 - [ ] Deliberately exercise: delete node with running pods → observe with and without PDB
 
@@ -122,3 +128,19 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] All runbooks reviewed and linked from README
 - [ ] `README.md` final pass — honest status table, portfolio-ready
 - [ ] GitHub: branch protection on `main`, issue templates, semantic version tag
+
+---
+
+## Phase 2 — Post-MVP Enhancements
+
+Deferred after initial build. Document the pattern in `decisions.md`; implement when phase 1
+is stable and deployed.
+
+| Feature | Notes |
+|---|---|
+| Multi-turn chat context | Client sends full `messages` array; server uses last-N turns for contextualized retrieval query. See `decisions.md`. |
+| Query rewriting | Haiku call to rewrite user query before embedding. Improves recall on ambiguous queries. Service slot exists in `src/rag_api/routers/chat.py`. |
+| Bedrock Guardrails | Stub exists at `src/rag_api/services/guardrails.py`. Wire Bedrock Guardrails resource + apply/check calls. Adds ~50ms latency. |
+| Per-tenant cost dashboards | LiteLLM `/spend/logs` → Grafana per-tenant spend breakdown. Overall cost dashboard ships in phase 1. |
+| HPA on RAG API + LiteLLM | CPU-based horizontal scaling. KEDA scale-to-zero on vLLM (GPU cost) ships in phase 1. |
+| Client VPN admin path | IAM Identity Center + AWS Client VPN for admin access to internal services. Phase 1 uses `kubectl port-forward` for Grafana access. |

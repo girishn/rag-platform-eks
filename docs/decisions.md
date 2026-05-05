@@ -64,6 +64,27 @@ versioning provides a rollback path. Cost: 3–5 minute cold start for weight do
 
 ### LiteLLM
 
+### LiteLLM key storage
+
+**Decision: existing RDS instance (`litellm` DB) + ElastiCache Serverless for Redis.**
+
+LiteLLM uses Prisma to manage its own schema — it just needs a `DATABASE_URL` pointing at a
+PostgreSQL database. A separate `litellm` database on the same RDS instance keeps storage costs
+flat and avoids a second RDS cluster. The pgvector and LiteLLM workloads are distinct enough
+(HNSW vector queries vs OLTP key lookups) that they won't contend at portfolio-project load.
+
+Redis is non-negotiable for performance. Without it, every LLM request makes a synchronous
+PostgreSQL query to validate the virtual key and check the tenant's budget. With Redis, key
+metadata is cached after first hit (~0.5ms GET vs ~3ms RDS query). LiteLLM also increments
+spend atomically in Redis (INCRBYFLOAT) and flushes to PostgreSQL in batches — this eliminates
+a DB write on every token-counting event.
+
+**Why ElastiCache Serverless over in-cluster Redis pod:**
+An in-cluster pod has no persistence guarantees — a pod restart wipes the key cache and forces
+cold RDS lookups until it warms up. More importantly, the project constraint is no static
+credentials; ElastiCache Serverless supports IAM authentication, so LiteLLM pods connect via
+a short-lived IAM token obtained through Pod Identity, with no password in config.
+
 **Budget vs backend error distinction:** This is the most important operational concept.
 A virtual key budget exhaustion returns 429 from LiteLLM and should NOT trigger the fallback
 chain — the tenant has spent their allowance. A Bedrock ThrottlingException is a backend error

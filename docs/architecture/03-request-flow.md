@@ -7,14 +7,17 @@ path and the vLLM fallback path.
 ```mermaid
 sequenceDiagram
     participant C as Client
+    participant A as ALB (ACM TLS)
     participant G as Gateway (VPC Lattice)
     participant R as RAG API (FastAPI)
     participant P as pgvector (RDS)
     participant L as LiteLLM Proxy
     participant B as AWS Bedrock
     participant V as vLLM (EKS GPU)
+    participant ADOT as ADOT Collector
 
-    C->>G: POST /v1/chat/completions
+    C->>A: HTTPS POST /v1/chat/completions
+    A->>G: HTTP (TLS terminated at ALB)
     G->>R: HTTPRoute match → forward
 
     %% Query embedding
@@ -25,10 +28,8 @@ sequenceDiagram
     R->>P: SELECT chunk_text, metadata ORDER BY embedding <=> query_vector LIMIT 5
     P-->>R: top-k chunks + similarity scores
 
-    %% Prompt assembly + guardrails
+    %% Prompt assembly
     R->>R: Assemble system prompt + context chunks + user query
-    R->>B: Bedrock Guardrails — apply content filter
-    B-->>R: Filtered / approved prompt
 
     %% LLM routing
     R->>L: POST /v1/chat/completions (assembled prompt + tenant virtual key)
@@ -48,6 +49,7 @@ sequenceDiagram
     R-->>C: Streamed response (SSE)
 
     %% Async observability
-    R-)L: Emit OTEL span (end-to-end latency, token count)
-    L-)P: Log spend record (tokens, cost, tenant_id)
+    R-)ADOT: OTLP span export (end-to-end trace, embedding latency, retrieval latency)
+    L-)ADOT: OTLP span export (routing decision, token count, backend selected)
+    L-)P: Flush spend record (tokens, cost, tenant_id) — batched async
 ```
