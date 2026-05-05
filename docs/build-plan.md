@@ -41,6 +41,7 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 ### Add-ons
 - [ ] `terraform/addons/` — AWS Gateway API Controller (VPC Lattice)
 - [ ] `terraform/addons/` — kube-prometheus-stack (Prometheus + Grafana + AlertManager)
+- [ ] `terraform/addons/` — AWS Distro for OpenTelemetry (ADOT) EKS managed add-on
 - [ ] `terraform/addons/` — KEDA
 - [ ] `terraform/addons/` — metrics-server
 - [ ] `terraform/addons/` — EKS Pod Identity agent DaemonSet
@@ -105,8 +106,9 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] `dashboards/` — Grafana: Bedrock vs vLLM routing split
 - [ ] `dashboards/` — Grafana: per-tenant token spend (from LiteLLM /spend/logs)
 - [ ] `dashboards/` — Grafana: four golden signals panel
+- [ ] Configure ADOT Collector: OTLP receiver + AWS X-Ray exporter (instrument RAG API and LiteLLM with OTEL SDK)
 - [ ] AlertManager rules: `num_requests_waiting > 10`, `gpu_cache > 90%`, `fallback_triggered`, `error_rate > 1%`
-- [ ] Deliberately exercise: artificial embedding latency → verify in trace → write Prometheus alert
+- [ ] Deliberately exercise: artificial embedding latency → verify in X-Ray trace → write Prometheus alert
 
 ### Hardening
 - [ ] PodDisruptionBudgets for RAG API, LiteLLM (minAvailable: 1)

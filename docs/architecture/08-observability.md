@@ -16,7 +16,7 @@ flowchart LR
 
     subgraph Collection["Collection Layer"]
         F["Prometheus\nScrape + TSDB storage\n15s interval"]
-        G["OTEL Collector\nTrace pipeline\nW3C TraceContext propagation"]
+        G["ADOT Collector\nOTLP receiver → X-Ray exporter\nW3C TraceContext propagation"]
     end
 
     subgraph Destinations["Destinations"]
@@ -36,7 +36,6 @@ flowchart LR
     A --> G
     B --> G
     G --> I
-    G --> H
 
     style Sources fill:#f5f5f5,stroke:#999
     style Collection fill:#e8f4e8,stroke:#4caf50

@@ -137,10 +137,26 @@ improving ingestion throughput and reducing cost.
 | Errors | `rag_api_requests_total{status="5xx"}` | RAG API `/metrics` |
 | Saturation | `vllm:num_requests_waiting` | vLLM `/metrics` |
 
+### OTEL Collector distribution
+
+**Decision: AWS Distro for OpenTelemetry (ADOT)**, deployed as an EKS managed add-on via
+`terraform/addons/`. CloudWatch X-Ray is the sole trace destination — no Grafana Tempo.
+
+Alternatives considered:
+- `otel-collector-contrib` (upstream): full feature set, but we manage the Helm chart and
+  upgrades. No benefit here — nothing in the stack needs a receiver or processor ADOT excludes.
+- Grafana Alloy: would unify metrics scraping and tracing in one agent, but introduces
+  Grafana-vendor coupling and more config surface for no meaningful gain.
+
+ADOT fits the existing pattern: AWS manages the add-on lifecycle, X-Ray export works without
+custom exporter config, and Pod Identity association is identical to every other workload role.
+Grafana stays metrics-only (Prometheus as source). Keeping traces and metrics on separate
+backends avoids coupling their retention and scaling characteristics.
+
 **Trace propagation:** W3C TraceContext (`traceparent` header) propagated from Gateway →
-RAG API → LiteLLM → Bedrock (where supported). OTEL Collector exports spans to CloudWatch
-X-Ray. A single RAG request produces spans for: embedding call, pgvector query, guardrails
-call, LiteLLM call, and total end-to-end.
+RAG API → LiteLLM → Bedrock (where supported). ADOT Collector receives spans via OTLP and
+exports to CloudWatch X-Ray. A single RAG request produces spans for: embedding call,
+pgvector query, guardrails call, LiteLLM call, and total end-to-end.
 
 ---
 

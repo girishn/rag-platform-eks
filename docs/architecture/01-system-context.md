@@ -12,6 +12,11 @@ admin UI) via the same VPC Lattice service network, scoped by IAM AuthPolicy.
 All pod-to-AWS-service traffic flows via **VPC Interface/Gateway Endpoints** — Bedrock, ECR, S3,
 STS, CloudWatch, SSM — so no RAG Platform traffic traverses the internet via NAT Gateway.
 
+AWS KMS is not called directly by application pods. KMS decryption happens transparently inside
+the storage services: RDS decrypts EBS blocks, S3 decrypts objects, and SSM decrypts SecureString
+parameters — all using customer-managed KMS keys, all invisible to the application. Pod Identity
+roles grant `ssm:GetParameter`, not `kms:Decrypt`.
+
 ```mermaid
 C4Context
   title System Context — RAG Platform on EKS
@@ -30,7 +35,6 @@ C4Context
   System_Ext(rds, "Amazon RDS (PostgreSQL)", "pgvector for HNSW vector similarity search; per-tenant schema isolation; KMS encrypted; SSL required")
   System_Ext(cw, "Amazon CloudWatch", "Metrics ingestion, X-Ray distributed traces, alerting; reached via VPC Interface Endpoint")
   System_Ext(ecr, "Amazon ECR", "Private container registry for RAG API, ingestion, and LiteLLM images; reached via VPC Interface Endpoint")
-  System_Ext(kms, "AWS KMS", "Customer-managed keys for etcd secrets, RDS, S3 at-rest encryption, EBS volumes")
   System_Ext(trail, "AWS CloudTrail", "Audit log: IAM role assumptions, KMS key usage, S3 data access, EKS API calls")
 
   Rel(user, alb, "POST /v1/chat/completions", "HTTPS / TLS via ACM")
@@ -42,6 +46,5 @@ C4Context
   Rel(rag, rds, "Vector similarity search; metadata reads", "PostgreSQL TLS — private subnet")
   Rel(rag, cw, "Emit metrics and traces", "VPC Interface Endpoint — no internet")
   Rel(rag, ecr, "Pull container images at deploy", "VPC Interface Endpoint — no internet")
-  Rel(rag, kms, "Decrypt secrets; envelope encryption", "VPC Interface Endpoint")
   Rel(rag, trail, "API calls audited automatically", "CloudTrail")
 ```
