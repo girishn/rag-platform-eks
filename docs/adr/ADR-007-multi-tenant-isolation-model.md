@@ -46,6 +46,13 @@ Each tenant is isolated across three layers:
   resource quotas and LimitRanges add management overhead. Consider a higher-level abstraction
   (e.g. Capsule or HNC) at that scale.
 
+**Phase 1 limitation — namespace layer is incomplete:**
+In Phase 1, tenant namespaces are created during tenant provisioning but remain empty. All
+compute (RAG API, ingestion CronJob) runs in shared namespaces. NetworkPolicy in an empty
+namespace enforces nothing. Full namespace isolation (per-tenant ingestion jobs, NetworkPolicy
+between tenant pods) is a Phase 2 concern. The schema and virtual key layers are the active
+isolation boundaries in Phase 1.
+
 **Risks:**
 - The application must correctly set `search_path` on every database connection. A connection
   pool that leaks a session with the wrong `search_path` could expose another tenant's data.

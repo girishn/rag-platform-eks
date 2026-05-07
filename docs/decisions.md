@@ -73,6 +73,16 @@ PostgreSQL database. A separate `litellm` database on the same RDS instance keep
 flat and avoids a second RDS cluster. The pgvector and LiteLLM workloads are distinct enough
 (HNSW vector queries vs OLTP key lookups) that they won't contend at portfolio-project load.
 
+**LiteLLM → RDS auth: password from Secrets Manager (not RDS IAM auth).**
+RDS IAM auth generates a 15-minute token used as the PostgreSQL password. asyncpg (used by
+rag-api and ingestion) can generate a fresh token per connection attempt, so RDS IAM auth works
+cleanly there. Prisma holds a persistent connection pool and has no native token-refresh hook —
+forcing IAM auth would require a sidecar or custom connection factory. Instead: a dedicated
+`litellm` PostgreSQL user, password stored in Secrets Manager, rotated by Secrets Manager
+automatic rotation. LiteLLM reads `DATABASE_URL` at pod startup via the Secrets Manager CSI
+driver. The litellm Pod Identity role needs `secretsmanager:GetSecretValue` only — no
+`rds-db:connect`.
+
 Redis is non-negotiable for performance. Without it, every LLM request makes a synchronous
 PostgreSQL query to validate the virtual key and check the tenant's budget. With Redis, key
 metadata is cached after first hit (~0.5ms GET vs ~3ms RDS query). LiteLLM also increments
@@ -81,9 +91,16 @@ a DB write on every token-counting event.
 
 **Why ElastiCache Serverless over in-cluster Redis pod:**
 An in-cluster pod has no persistence guarantees — a pod restart wipes the key cache and forces
-cold RDS lookups until it warms up. More importantly, the project constraint is no static
-credentials; ElastiCache Serverless supports IAM authentication, so LiteLLM pods connect via
-a short-lived IAM token obtained through Pod Identity, with no password in config.
+cold RDS lookups until it warms up. ElastiCache Serverless is managed, multi-AZ by default,
+and requires no capacity planning.
+
+**ElastiCache auth: network-layer security only (no Redis AUTH password).**
+ElastiCache IAM token auth requires rotating a short-lived STS token every 15 minutes as the
+Redis `AUTH` password — LiteLLM has no native support for this refresh cycle. Instead, access
+is controlled purely at the network layer: TLS in transit (`rediss://` scheme) and a security
+group that allows inbound 6379 exclusively from the LiteLLM pod CIDR. No password in config,
+no Secrets Manager entry for Redis. The Pod Identity IAM auth story is reserved for services
+where the SDK genuinely supports it end-to-end (Bedrock, S3, RDS).
 
 **Budget vs backend error distinction:** This is the most important operational concept.
 A virtual key budget exhaustion returns 429 from LiteLLM and should NOT trigger the fallback
@@ -99,12 +116,32 @@ by design; the key is understanding it when reading logs.
 
 ## RAG API (Week 3)
 
-### Query pipeline design
+### Tenant resolution
 
-**Query rewriting decision:** The RAG API rewrites the user query before embedding (expanding
-abbreviations, adding synonyms) to improve retrieval recall. This adds one LLM call per request
-but significantly improves recall for short or ambiguous queries. The rewrite uses a lightweight
-Haiku call, not the full Sonnet — cost is ~0.1% of the main inference call.
+**RAG API resolves tenant via LiteLLM `/key/info` + in-process LRU cache.**
+
+Client sends `Authorization: Bearer <virtual-key>`. RAG API calls LiteLLM `GET /key/info`
+with that token before touching pgvector. LiteLLM returns key metadata including a `tenant_id`
+field set at key creation time. RAG API maps `tenant_id → schema_name` (`tenant_{id}`) and
+sets `search_path` at the asyncpg connection string level (not in application code — per
+ADR-007 risk note).
+
+LRU cache (in-process, `cachetools.TTLCache`, TTL=60s) avoids a round-trip on every request
+after first hit. Cache keyed on the raw virtual key string. On 401/403 from LiteLLM, evict
+and return 401 to the client — do not fall through to pgvector with a stale tenant.
+
+`X-Tenant-ID` header from the client is explicitly rejected — tenant identity must come from
+the authenticated virtual key, not a client-supplied claim.
+
+**pgvector connection pools: one pool per tenant.**
+ADR-007 warns that a shared pool with `SET search_path` on borrow risks schema leakage if the
+reset is missed. Safest model at portfolio scale (<10 tenants): one `asyncpg.Pool` per tenant,
+`min_size=1, max_size=3`, `search_path` set via `server_settings` at pool creation. No per-request
+`SET` call needed — the connection is always in the correct schema. Pool is created lazily on
+first request for that tenant and cached for the pod lifetime. If tenant count grows past ~20,
+revisit with a single pool + explicit reset-on-release (`try/finally`).
+
+### Query pipeline design
 
 **Guardrails placement:** Bedrock Guardrails applied after prompt assembly (before LiteLLM call)
 rather than at the Bedrock layer. This ensures the assembled prompt (including retrieved chunks)

@@ -38,9 +38,9 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] `terraform/elasticache/` — outputs.tf exposing endpoint for LiteLLM Helm values
 
 ### IAM (Pod Identity)
-- [ ] `terraform/iam/` — Pod Identity role: rag-api (Bedrock, S3, RDS IAM auth, SSM)
-- [ ] `terraform/iam/` — Pod Identity role: litellm (RDS IAM auth, ElastiCache Connect, Secrets Manager read)
-- [ ] `terraform/iam/` — Pod Identity role: ingestion (Bedrock, S3, RDS IAM auth, Textract)
+- [ ] `terraform/iam/` — Pod Identity role: rag-api (Bedrock, S3, `rds-db:connect` IAM auth)
+- [ ] `terraform/iam/` — Pod Identity role: litellm (`secretsmanager:GetSecretValue` for DATABASE_URL only — password auth, not RDS IAM)
+- [ ] `terraform/iam/` — Pod Identity role: ingestion (Bedrock, S3, `rds-db:connect` IAM auth, Textract)
 - [ ] `terraform/iam/` — Pod Identity role: vllm (S3 read for model weights)
 - [ ] Deliberately exercise: exec into pod → `aws sts get-caller-identity` → verify role ARN
 - [ ] Deliberately exercise: delete association → verify exact SDK error message
@@ -69,7 +69,7 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 ### LiteLLM
 - [ ] `helm/litellm/` — Deployment + ConfigMap-mounted `config.yaml`
 - [ ] `helm/litellm/` — `DATABASE_URL` from Secrets Manager (points to `litellm` DB on RDS)
-- [ ] `helm/litellm/` — `REDIS_URL` from Secrets Manager (ElastiCache Serverless endpoint, TLS)
+- [ ] `helm/litellm/` — `REDIS_URL` as env var (ElastiCache Serverless endpoint, `rediss://` scheme, no password — network-layer auth only)
 - [ ] `helm/litellm/` — Bedrock primary model group (Claude 3.5 Sonnet)
 - [ ] `helm/litellm/` — vLLM fallback model group
 - [ ] `helm/litellm/` — Virtual key bootstrap script (per-tenant keys with budget)
@@ -83,7 +83,8 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 ### RAG API
 - [ ] `src/rag_api/` — FastAPI app scaffold with health endpoint
 - [ ] `src/rag_api/services/embedding.py` — Titan Embeddings V2 client
-- [ ] `src/rag_api/services/retrieval.py` — pgvector HNSW ANN search
+- [ ] `src/rag_api/services/tenant.py` — LiteLLM `/key/info` lookup + TTLCache (60s), maps virtual key → tenant_id → schema
+- [ ] `src/rag_api/services/retrieval.py` — pgvector HNSW ANN search (pool-per-tenant, `search_path` via `server_settings`)
 - [ ] `src/rag_api/services/llm_client.py` — LiteLLM passthrough with streaming
 - [ ] `src/rag_api/services/guardrails.py` — pass-through stub (phase 2: wire Bedrock Guardrails)
 - [ ] `src/rag_api/routers/chat.py` — POST /v1/chat/completions (retrieve → assemble → stream)

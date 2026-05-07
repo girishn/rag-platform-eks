@@ -54,3 +54,8 @@ dashboards/*.bak
 
 # Other
 .obsidian/
+
+# Claude Code local settings and session context
+.claude/settings.local.json
+CONTEXT.md
+*.html
