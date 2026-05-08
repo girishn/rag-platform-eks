@@ -26,16 +26,16 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] Deliberately exercise: misconfigure NodePool amiFamily → read Karpenter error logs → fix
 
 ### RDS
-- [ ] `terraform/rds/` — RDS PostgreSQL 16 + pgvector extension
-- [ ] `terraform/rds/` — Parameter group with `shared_preload_libraries = 'pg_vector'`
-- [ ] `terraform/rds/` — Multi-AZ, private subnet group, security group from EKS only
-- [ ] `terraform/rds/` — Create `litellm` database on same RDS instance (isolated from pgvector DB)
+- [x] `terraform/rds/` — RDS PostgreSQL 16 + pgvector extension (single-AZ for dev)
+- [x] `terraform/rds/` — Custom parameter group (pgvector needs no shared_preload_libraries on RDS — installs via CREATE EXTENSION)
+- [x] `terraform/rds/` — Private subnet group, security group from EKS VPC CIDR only
+- [ ] `terraform/rds/` — Create `litellm` database on same RDS instance (post-provision via psql from within VPC)
 - [ ] Create tenant schemas + HNSW index after cluster is up
 
 ### ElastiCache
-- [ ] `terraform/elasticache/` — ElastiCache Serverless for Redis (TLS + IAM auth)
-- [ ] `terraform/elasticache/` — Security group: allow inbound 6379 from LiteLLM pod CIDR only
-- [ ] `terraform/elasticache/` — outputs.tf exposing endpoint for LiteLLM Helm values
+- [x] `terraform/elasticache/` — ElastiCache Serverless for Redis (TLS, network-layer auth only)
+- [x] `terraform/elasticache/` — Security group: allow inbound 6379 from VPC CIDR only
+- [x] `terraform/elasticache/` — outputs.tf exposing rediss:// endpoint for LiteLLM Helm values
 
 ### IAM (Pod Identity)
 - [ ] `terraform/iam/` — Pod Identity role: rag-api (Bedrock, S3, `rds-db:connect` IAM auth)

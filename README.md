@@ -113,7 +113,8 @@ _Ingestion pipeline (not shown): S3 → chunk → Titan embed → pgvector upser
 | Cost model | Done |
 | `terraform/bootstrap` | Done |
 | `terraform/eks` (VPC, EKS, Karpenter) | Done |
-| `terraform/rds` (PostgreSQL + pgvector) | Not started |
+| `terraform/rds` (PostgreSQL + pgvector) | Done |
+| `terraform/elasticache` (Redis Serverless) | Done |
 | `terraform/iam` (Pod Identity roles) | Not started |
 | `terraform/addons` (Gateway, Prometheus, KEDA) | Not started |
 | `helm/vllm` | Not started |

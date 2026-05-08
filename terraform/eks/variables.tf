@@ -15,6 +15,18 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
+variable "env" {
+  type        = string
+  description = "Environment name — passed via tfvars, used by downstream modules"
+  default     = "dev"
+}
+
+variable "state_bucket" {
+  type        = string
+  description = "S3 state bucket — passed via tfvars, used by downstream modules"
+  default     = ""
+}
+
 variable "single_nat_gateway" {
   type        = bool
   description = "Use a single NAT gateway (cost-optimised for dev). Set false for multi-AZ HA."
