@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """Run terraform fmt, validate, and tflint across all modules."""
 import subprocess
 import sys

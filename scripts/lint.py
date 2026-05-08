@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """Run ruff check and mypy across all source."""
 import subprocess
 import sys

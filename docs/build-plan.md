@@ -10,18 +10,18 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [x] Write all eight ADRs in `docs/adr/` before writing any Terraform
 - [x] Populate `docs/architecture/` with all eight Mermaid diagrams
 - [x] Write all four runbooks in `docs/runbooks/`
-- [ ] `terraform/bootstrap/` — S3 state bucket + DynamoDB lock table
-- [ ] Verify state backend accessible before proceeding to Week 1
+- [x] `terraform/bootstrap/` — S3 state bucket + DynamoDB lock table
+- [x] Verify state backend accessible before proceeding to Week 1
 
 ---
 
 ## Week 1 — Infrastructure Foundation
 
 ### EKS Cluster
-- [ ] `terraform/eks/` — VPC (3 AZ, public + private subnets)
-- [ ] `terraform/eks/` — EKS 1.35 cluster with managed node group for system pods
-- [ ] `terraform/eks/` — Karpenter: CPU NodePool (AL2023, m5 family, spot+OD)
-- [ ] `terraform/eks/` — Karpenter: GPU NodePool (Bottlerocket Accelerated, g5 family, spot+OD)
+- [x] `terraform/eks/` — VPC (3 AZ, public + private subnets)
+- [x] `terraform/eks/` — EKS 1.35 cluster with managed node group for system pods
+- [x] `terraform/eks/` — Karpenter: CPU NodePool (AL2023, m5 family, spot+OD)
+- [x] `terraform/eks/` — Karpenter: GPU NodePool (Bottlerocket Accelerated, g5 family, spot+OD)
 - [ ] Deliberately exercise: deploy GPU pod → watch Karpenter provision → delete pod → watch consolidation
 - [ ] Deliberately exercise: misconfigure NodePool amiFamily → read Karpenter error logs → fix
 
@@ -51,7 +51,7 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] `terraform/addons/` — AWS Distro for OpenTelemetry (ADOT) EKS managed add-on
 - [ ] `terraform/addons/` — KEDA
 - [ ] `terraform/addons/` — metrics-server
-- [ ] `terraform/addons/` — EKS Pod Identity agent DaemonSet
+- [x] `terraform/eks/` — EKS Pod Identity agent (moved from addons — must precede any Pod Identity association)
 
 ---
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """Create ECR repositories and docker login. Run once per session before docker_build.py."""
 import subprocess
 import sys

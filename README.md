@@ -112,7 +112,7 @@ _Ingestion pipeline (not shown): S3 → chunk → Titan embed → pgvector upser
 | Runbooks (4) | Done |
 | Cost model | Done |
 | `terraform/bootstrap` | Done |
-| `terraform/eks` (VPC, EKS, Karpenter) | Not started |
+| `terraform/eks` (VPC, EKS, Karpenter) | Done |
 | `terraform/rds` (PostgreSQL + pgvector) | Not started |
 | `terraform/iam` (Pod Identity roles) | Not started |
 | `terraform/addons` (Gateway, Prometheus, KEDA) | Not started |
@@ -127,26 +127,69 @@ _Ingestion pipeline (not shown): S3 → chunk → Titan embed → pgvector upser
 
 ---
 
-## Quick start
+## Prerequisites
+
+- [uv](https://docs.astral.sh/uv/) — Python toolchain
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.9
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) v2 with credentials for `ap-southeast-2`
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) + [helm](https://helm.sh/docs/intro/install/) (needed after cluster is up)
 
 ```bash
-# Install uv (https://docs.astral.sh/uv/)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install all dependencies
+# Install Python dependencies
 uv sync --all-extras
+```
 
-# Run tests
+---
+
+## Provision
+
+```bash
+# 1. Authenticate
+aws sts get-caller-identity   # verify creds
+
+# 2. Bootstrap state backend (once only — creates S3 bucket + DynamoDB lock table)
+cd terraform/bootstrap && terraform init && terraform apply
+cd -
+
+# 3. Provision all modules in dependency order (eks → rds → elasticache → iam → addons)
+uv run scripts/provision.py --env dev
+
+# 4. Re-running is idempotent. To skip bootstrap on subsequent runs:
+uv run scripts/provision.py --env dev --skip-bootstrap
+
+# 5. Update kubeconfig after cluster is up
+aws eks update-kubeconfig --name rag-platform-cluster --region ap-southeast-2
+```
+
+---
+
+## Test and lint
+
+```bash
+# Full test suite (pytest with moto for AWS mocks)
 uv run scripts/test.py
 
-# Lint and type check
+# Lint + type check (ruff + mypy)
 uv run scripts/lint.py
 
-# Bootstrap Terraform state (once only)
-cd terraform/bootstrap && terraform init && terraform apply
+# Terraform fmt + validate + tflint
+uv run scripts/tf_validate.py
 
-# Provision full stack
-uv run scripts/provision.py
+# Load test (requires a running cluster)
+uv run scripts/benchmark.py --endpoint <alb-dns-name>
+```
+
+---
+
+## Destroy
+
+```bash
+# Tear down all modules in reverse order (addons → iam → elasticache → rds → eks)
+# State bucket and DynamoDB lock table are preserved by default.
+uv run scripts/destroy.py --env dev
+
+# Full teardown including state backend (irreversible — loses all Terraform state)
+uv run scripts/destroy.py --env dev --include-bootstrap
 ```
 
 ---
