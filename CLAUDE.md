@@ -10,8 +10,8 @@ EKS 1.35 + Karpenter | LiteLLM (Bedrock → vLLM) | pgvector/RDS | FastAPI | Pyt
 uv run scripts/test.py           # full test suite
 uv run scripts/lint.py           # ruff + mypy
 uv run scripts/tf_validate.py    # fmt + validate + tflint
-uv run scripts/provision.py      # terraform apply + helm installs
-uv run scripts/destroy.py        # full teardown
+uv run scripts/provision.py --env dev [--skip-bootstrap]   # terraform apply + helm installs
+uv run scripts/destroy.py --env dev [--include-bootstrap]  # full teardown
 uv run scripts/benchmark.py --endpoint <url>  # load test
 ```
 
