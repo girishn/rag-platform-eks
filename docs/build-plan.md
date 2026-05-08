@@ -38,10 +38,10 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [x] `terraform/elasticache/` — outputs.tf exposing rediss:// endpoint for LiteLLM Helm values
 
 ### IAM (Pod Identity)
-- [ ] `terraform/iam/` — Pod Identity role: rag-api (Bedrock, S3, `rds-db:connect` IAM auth)
-- [ ] `terraform/iam/` — Pod Identity role: litellm (`secretsmanager:GetSecretValue` for DATABASE_URL only — password auth, not RDS IAM)
-- [ ] `terraform/iam/` — Pod Identity role: ingestion (Bedrock, S3, `rds-db:connect` IAM auth, Textract)
-- [ ] `terraform/iam/` — Pod Identity role: vllm (S3 read for model weights)
+- [x] `terraform/iam/` — Pod Identity role: rag-api (Bedrock, S3, `rds-db:connect` IAM auth)
+- [x] `terraform/iam/` — Pod Identity role: litellm (`secretsmanager:GetSecretValue` for DATABASE_URL only — password auth, not RDS IAM)
+- [x] `terraform/iam/` — Pod Identity role: ingestion (Bedrock, S3, `rds-db:connect` IAM auth, Textract)
+- [x] `terraform/iam/` — Pod Identity role: vllm (S3 read for model weights)
 - [ ] Deliberately exercise: exec into pod → `aws sts get-caller-identity` → verify role ARN
 - [ ] Deliberately exercise: delete association → verify exact SDK error message
 

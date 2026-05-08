@@ -15,5 +15,10 @@ output "master_secret_arn" {
 
 output "security_group_id" {
   value       = aws_security_group.rds.id
-  description = "RDS security group ID — consumed by elasticache/ for cross-referencing"
+  description = "RDS security group ID"
+}
+
+output "db_resource_id" {
+  value       = aws_db_instance.this.resource_id
+  description = "RDS DBI resource ID — used to scope rds-db:connect IAM policy"
 }

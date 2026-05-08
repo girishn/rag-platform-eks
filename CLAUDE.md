@@ -26,7 +26,7 @@ uv run scripts/benchmark.py --endpoint <url>  # load test
 
 ## AWS conventions
 - Region: `ap-southeast-2` | Prefix: `var.name_prefix`
-- Pod Identity module: `terraform-aws-modules/eks-pod-identity/aws` v2.5.0
+- Pod Identity: native `aws_iam_role` + `aws_eks_pod_identity_association` (eks-pod-identity v2.x requires aws 6.x, incompatible with ~> 5.80)
 - EKS Blueprints Addons: `aws-ia/eks-blueprints-addons/aws` v1.23.0
 - EKS module: `terraform-aws-modules/eks/aws` (latest)
 
