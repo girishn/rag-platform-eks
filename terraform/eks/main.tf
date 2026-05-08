@@ -144,30 +144,10 @@ module "eks" {
   })
 }
 
-# ── VPC Endpoints — AWS API traffic stays inside VPC (ADR-008) ───────────────
-# NAT Gateway handles only OS updates + third-party calls.
+# ── VPC Endpoints ─────────────────────────────────────────────────────────────
+# Interface endpoints deferred to prod — see ADR-009 (cost: $281/month in dev).
+# S3 Gateway endpoint retained: free, eliminates S3 NAT egress charges.
 
-data "aws_security_group" "default" {
-  vpc_id = module.vpc.vpc_id
-  name   = "default"
-}
-
-resource "aws_security_group" "vpc_endpoints" {
-  name        = "${var.name_prefix}-vpce"
-  description = "Allow HTTPS from within the VPC to Interface endpoints"
-  vpc_id      = module.vpc.vpc_id
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = [module.vpc.vpc_cidr_block]
-  }
-
-  tags = merge(var.tags, { Name = "${var.name_prefix}-vpce" })
-}
-
-# S3 Gateway endpoint — free, eliminates S3 NAT charges
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = module.vpc.vpc_id
   service_name      = "com.amazonaws.${var.aws_region}.s3"
@@ -175,34 +155,6 @@ resource "aws_vpc_endpoint" "s3" {
   route_table_ids   = module.vpc.private_route_table_ids
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-vpce-s3" })
-}
-
-locals {
-  interface_endpoints = toset([
-    "bedrock-runtime",
-    "ecr.api",
-    "ecr.dkr",
-    "sts",
-    "logs",
-    "monitoring",
-    "ssm",
-    "ssmmessages",
-    "kms",
-    "secretsmanager",
-  ])
-}
-
-resource "aws_vpc_endpoint" "interface" {
-  for_each = local.interface_endpoints
-
-  vpc_id              = module.vpc.vpc_id
-  service_name        = "com.amazonaws.${var.aws_region}.${each.value}"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = module.vpc.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = merge(var.tags, { Name = "${var.name_prefix}-vpce-${each.value}" })
 }
 
 # ── IRSA — VPC CNI (no Pod Identity support) ─────────────────────────────────

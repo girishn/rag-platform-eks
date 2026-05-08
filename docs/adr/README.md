@@ -16,6 +16,7 @@ changes, a new ADR supersedes the old one.
 | [ADR-006](ADR-006-vllm-model-serving.md) | vLLM over SageMaker or Triton for self-hosted GPU inference | Accepted | 2026-05-04 |
 | [ADR-007](ADR-007-multi-tenant-isolation-model.md) | Three-layer tenant isolation model (namespace + schema + virtual key) | Accepted | 2026-05-04 |
 | [ADR-008](ADR-008-network-security-and-defense-in-depth.md) | Network security and defense-in-depth strategy | Accepted | 2026-05-05 |
+| [ADR-009](ADR-009-defer-vpc-interface-endpoints.md) | Defer VPC Interface Endpoints to production (cost: $281/month in dev) | Accepted | 2026-05-08 |
 
 ## How to write an ADR
 
