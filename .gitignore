@@ -32,6 +32,7 @@ terraform.rc
 *.key
 kubeconfig
 kubeconfig.*
+infra/virtual-keys.json
 
 # IDE
 .vscode/

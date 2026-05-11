@@ -1,0 +1,52 @@
+replicaCount: 0
+
+image:
+  repository: vllm/vllm-openai
+  tag: "v0.6.6.post1"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  name: vllm
+
+# S3 bucket and prefix for model weights (init container pulls at pod start)
+model:
+  s3Bucket: rag-platform-models
+  s3Prefix: llama-3.1-8b-instruct
+  localPath: /models
+  name: meta-llama/Meta-Llama-3.1-8B-Instruct
+
+vllm:
+  tensorParallelSize: "1"
+  maxModelLen: "8192"
+  dtype: bfloat16
+  port: 8000
+
+resources:
+  requests:
+    cpu: "4"
+    memory: 20Gi
+    nvidia.com/gpu: "1"
+  limits:
+    cpu: "8"
+    memory: 24Gi
+    nvidia.com/gpu: "1"
+
+# PVC for model weight caching between pod restarts
+pvc:
+  storageClass: gp3
+  size: 30Gi
+
+service:
+  port: 8000
+
+# Karpenter GPU node taint — must match karpenter.tf GPU NodePool
+tolerations:
+  - key: nvidia.com/gpu
+    value: "true"
+    effect: NoSchedule
+
+nodeSelector:
+  nvidia.com/gpu: "true"
+
+aws:
+  region: ap-southeast-2

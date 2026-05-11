@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vllm.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "vllm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "vllm.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+
+      initContainers:
+        - name: model-sync
+          image: amazon/aws-cli:latest
+          command:
+            - aws
+            - s3
+            - sync
+            - s3://{{ .Values.model.s3Bucket }}/{{ .Values.model.s3Prefix }}/
+            - {{ .Values.model.localPath }}/
+            - --no-progress
+          env:
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.aws.region }}
+          volumeMounts:
+            - name: model-weights
+              mountPath: {{ .Values.model.localPath }}
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+
+      containers:
+        - name: vllm
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - python
+            - -m
+            - vllm.entrypoints.openai.api_server
+          args:
+            - --model
+            - {{ .Values.model.localPath }}
+            - --served-model-name
+            - {{ .Values.model.name }}
+            - --tensor-parallel-size
+            - {{ .Values.vllm.tensorParallelSize | quote }}
+            - --max-model-len
+            - {{ .Values.vllm.maxModelLen | quote }}
+            - --dtype
+            - {{ .Values.vllm.dtype }}
+            - --port
+            - {{ .Values.vllm.port | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.vllm.port }}
+              protocol: TCP
+          env:
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.aws.region }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: model-weights
+              mountPath: {{ .Values.model.localPath }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 5
+
+      volumes:
+        - name: model-weights
+          persistentVolumeClaim:
+            claimName: {{ include "vllm.fullname" . }}-models

@@ -54,6 +54,18 @@ backpressure, not CPU load.
 (~2GB base DLC vs ~18GB with weights), model changes don't require image rebuilds, and S3
 versioning provides a rollback path. Cost: 3–5 minute cold start for weight download.
 
+**Bedrock model selection — inference profiles required for Claude 4.x:**
+Direct foundation model IDs (e.g. `anthropic.claude-sonnet-4-5-20250929-v1:0`) fail with
+"on-demand throughput isn't supported" for Claude 4.x. These models require a cross-region
+inference profile ID instead (e.g. `au.anthropic.claude-sonnet-4-5-20250929-v1:0` for
+ap-southeast-2). The `au.` profile routes to `ap-southeast-4` (Melbourne) at Bedrock's
+discretion, so the IAM `bedrock:InvokeModel` resource must use `arn:aws:bedrock:*::foundation-model/*`
+(wildcard region) rather than the home region. Use `aws bedrock list-inference-profiles --region`
+to discover available profiles; `au.` = Australia, `apac.` = broader Asia Pacific.
+
+Claude 3.x models (e.g. `claude-3-5-sonnet-20241022-v2:0`) eventually go Legacy if not used
+for 30+ days. Use active 4.x inference profiles for all new deployments.
+
 **Observations from deliberate exercises:**
 - _[Fill in after Week 2]_ vLLM direct P50/P95/P99 latency: ...
 - _[Fill in]_ LiteLLM overhead (vLLM direct vs via LiteLLM): ...
@@ -103,13 +115,19 @@ no Secrets Manager entry for Redis. The Pod Identity IAM auth story is reserved 
 where the SDK genuinely supports it end-to-end (Bedrock, S3, RDS).
 
 **Budget vs backend error distinction:** This is the most important operational concept.
-A virtual key budget exhaustion returns 429 from LiteLLM and should NOT trigger the fallback
-chain — the tenant has spent their allowance. A Bedrock ThrottlingException is a backend error
-that SHOULD trigger fallback. LiteLLM's retry/fallback config handles this distinction correctly
-by design; the key is understanding it when reading logs.
+A virtual key budget exhaustion returns **HTTP 400** (`type: "budget_exceeded"`) from LiteLLM
+and does NOT trigger the fallback chain — the tenant has spent their allowance. A Bedrock
+ThrottlingException is a backend 5xx error that SHOULD trigger fallback. LiteLLM's
+retry/fallback config handles this distinction correctly by design; the key is understanding it
+when reading logs.
+
+Note: early docs assumed budget exhaustion returns 429 — the actual status is 400 in
+LiteLLM v1.82.3. The operational implication is the same (client must handle 400 for budget).
 
 **Observations from deliberate exercises:**
-- _[Fill in after Week 2]_ LiteLLM 429 response body when budget exceeded: `...`
+- Budget exhausted response body (LiteLLM v1.82.3):
+  `{"error": {"message": "Budget has been exceeded! Current cost: 0.0, Max budget: 0.0", "type": "budget_exceeded", "param": null, "code": "400"}}`
+- vLLM replicas after budget-exhausted request: 0 — fallback chain confirmed NOT triggered
 - _[Fill in]_ LiteLLM log line when fallback triggers: `...`
 
 ---

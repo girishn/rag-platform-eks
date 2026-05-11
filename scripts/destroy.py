@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+LITELLM_SECRET_NAME = "rag-platform-litellm-db-url"
+
 REGION = "ap-southeast-2"
 TF_ROOT = Path(__file__).parent.parent / "terraform"
 
@@ -74,13 +76,64 @@ def destroy_module(module: str, env: str, bucket: str, table: str) -> None:
     )
 
 
+def delete_litellm_db_secret() -> None:
+    """Delete the litellm DATABASE_URL secret before IAM destroy removes the role that owned it."""
+    print(f"\n--- litellm DATABASE_URL secret ---")
+    check = subprocess.run(
+        ["aws", "secretsmanager", "describe-secret", "--secret-id", LITELLM_SECRET_NAME, "--region", REGION],
+        capture_output=True,
+    )
+    if check.returncode != 0:
+        print(f"  {LITELLM_SECRET_NAME} not found — skipping")
+        return
+    run([
+        "aws", "secretsmanager", "delete-secret",
+        "--secret-id", LITELLM_SECRET_NAME,
+        "--force-delete-without-recovery",
+        "--region", REGION,
+    ])
+    print(f"  Deleted: {LITELLM_SECRET_NAME}")
+
+
+def teardown_k8s_secrets() -> None:
+    """Delete k8s Secrets and namespace created by bootstrap_k8s_secrets in provision.py."""
+    print("\n--- k8s litellm secrets + namespace ---")
+    for secret in ("litellm-db-url-sync", "litellm-env"):
+        subprocess.run(
+            ["kubectl", "delete", "secret", secret, "--namespace", "rag-platform",
+             "--ignore-not-found"],
+            check=False,
+        )
+    subprocess.run(
+        ["kubectl", "delete", "secretproviderclass", "litellm-db-url",
+         "--namespace", "rag-platform", "--ignore-not-found"],
+        check=False,
+    )
+    subprocess.run(
+        ["kubectl", "delete", "namespace", "rag-platform", "--ignore-not-found"],
+        check=False,
+    )
+    print("  Done")
+
+
 def helm_uninstalls(env: str) -> None:
     print("\n--- helm uninstalls ---")
-    # Mirror of provision.py helm_installs — add helm uninstall commands here
-    # as charts are added in Week 2-3.
-    # Example pattern (uncomment when chart exists):
-    #   run(["helm", "uninstall", "litellm", "--namespace", "rag-platform", "--ignore-not-found"])
-    print(f"  (no helm charts configured yet for env={env})")
+    k8s_root = Path(__file__).parent.parent / "k8s"
+
+    subprocess.run(
+        ["kubectl", "delete", "-f", str(k8s_root / "keda" / "vllm-scaledobject.yaml"),
+         "--ignore-not-found"],
+        check=False,
+    )
+    for release in ("litellm", "vllm"):
+        result = subprocess.run(
+            ["helm", "uninstall", release, "--namespace", "rag-platform"],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0 and "not found" not in result.stderr.lower():
+            print(f"\nFailed: helm uninstall {release}\n{result.stderr}", file=sys.stderr)
+            sys.exit(result.returncode)
+    print("  Done")
 
 
 def destroy_bootstrap() -> None:
@@ -116,9 +169,14 @@ def main() -> None:
         sys.exit(1)
 
     helm_uninstalls(args.env)
+    teardown_k8s_secrets()
 
     for module in MODULES:
         destroy_module(module, args.env, bucket, table)
+        # Delete SM secret after IAM is gone — IAM module has a data source that reads
+        # this secret ARN during refresh; deleting it earlier causes terraform destroy to fail.
+        if module == "iam":
+            delete_litellm_db_secret()
 
     if args.include_bootstrap:
         destroy_bootstrap()

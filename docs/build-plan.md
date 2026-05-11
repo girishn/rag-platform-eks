@@ -29,7 +29,7 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [x] `terraform/rds/` — RDS PostgreSQL 16 + pgvector extension (single-AZ for dev)
 - [x] `terraform/rds/` — Custom parameter group (pgvector needs no shared_preload_libraries on RDS — installs via CREATE EXTENSION)
 - [x] `terraform/rds/` — Private subnet group, security group from EKS VPC CIDR only
-- [ ] `terraform/rds/` — Create `litellm` database on same RDS instance (post-provision via psql from within VPC)
+- [x] `terraform/rds/` — Create `litellm` database on same RDS instance (automated in provision.py post-rds step)
 - [ ] Create tenant schemas + HNSW index after cluster is up
 
 ### ElastiCache
@@ -46,11 +46,11 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [ ] Deliberately exercise: delete association → verify exact SDK error message
 
 ### Add-ons
-- [ ] `terraform/addons/` — AWS Gateway API Controller (VPC Lattice)
-- [ ] `terraform/addons/` — kube-prometheus-stack (Prometheus + Grafana + AlertManager)
-- [ ] `terraform/addons/` — AWS Distro for OpenTelemetry (ADOT) EKS managed add-on
-- [ ] `terraform/addons/` — KEDA
-- [ ] `terraform/addons/` — metrics-server
+- [x] `terraform/addons/` — AWS Gateway API Controller (VPC Lattice)
+- [x] `terraform/addons/` — kube-prometheus-stack (Prometheus + Grafana + AlertManager)
+- [x] `terraform/addons/` — AWS Distro for OpenTelemetry (ADOT) EKS managed add-on
+- [x] `terraform/addons/` — KEDA
+- [x] `terraform/addons/` — metrics-server
 - [x] `terraform/eks/` — EKS Pod Identity agent (moved from addons — must precede any Pod Identity association)
 
 ---
@@ -58,22 +58,22 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 ## Week 2 — LLM Serving Layer
 
 ### vLLM
-- [ ] `helm/vllm/` — Deployment with GPU tolerations and node selectors
-- [ ] `helm/vllm/` — Init container: S3 model weight download
-- [ ] `helm/vllm/` — PVC for model weight caching
-- [ ] `helm/vllm/` — Service exposing port 8000
-- [ ] `k8s/keda/` — ScaledObject targeting `vllm:num_requests_waiting`
+- [x] `helm/vllm/` — Deployment with GPU tolerations and node selectors
+- [x] `helm/vllm/` — Init container: S3 model weight download
+- [x] `helm/vllm/` — PVC for model weight caching
+- [x] `helm/vllm/` — Service exposing port 8000
+- [x] `k8s/keda/` — ScaledObject targeting `vllm:num_requests_waiting`
 - [ ] Deliberately exercise: send long-context request → vLLM OOM → pod restart → write runbook entry
 - [ ] Benchmark: vLLM direct vs via LiteLLM → document P50/P95/P99 in `decisions.md`
 
 ### LiteLLM
-- [ ] `helm/litellm/` — Deployment + ConfigMap-mounted `config.yaml`
-- [ ] `helm/litellm/` — `DATABASE_URL` from Secrets Manager (points to `litellm` DB on RDS)
-- [ ] `helm/litellm/` — `REDIS_URL` as env var (ElastiCache Serverless endpoint, `rediss://` scheme, no password — network-layer auth only)
-- [ ] `helm/litellm/` — Bedrock primary model group (Claude 3.5 Sonnet)
-- [ ] `helm/litellm/` — vLLM fallback model group
-- [ ] `helm/litellm/` — Virtual key bootstrap script (per-tenant keys with budget)
-- [ ] Deliberately exercise: exhaust virtual key budget → verify 429 → confirm vLLM NOT triggered
+- [x] `helm/litellm/` — Deployment + ConfigMap-mounted `config.yaml`
+- [x] `helm/litellm/` — `DATABASE_URL` from Secrets Manager CSI driver → k8s Secret sync
+- [x] `helm/litellm/` — `REDIS_URL` as env var (ElastiCache Serverless endpoint, `rediss://` scheme, no password — network-layer auth only)
+- [x] `helm/litellm/` — Bedrock primary model group (Claude 3.5 Sonnet)
+- [x] `helm/litellm/` — vLLM fallback model group
+- [x] `helm/litellm/` — Virtual key bootstrap script (per-tenant keys with budget)
+- [x] Deliberately exercise: exhaust virtual key budget → verify 400 → confirm vLLM NOT triggered
 - [ ] Benchmark: LiteLLM → Bedrock vs LiteLLM → vLLM → document overhead in `decisions.md`
 
 ---
