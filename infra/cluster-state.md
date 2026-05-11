@@ -1,29 +1,33 @@
 ## Cluster State — last updated 2026-05-11
-Status: RUNNING
-Last provisioned: 2026-05-11
+Status: DESTROYED
+Last destroyed: 2026-05-11 (exit code 0)
 Bootstrap: intact (S3 state bucket + DynamoDB lock table — never destroyed)
 
-## What is running
+## What was running before destroy
 - EKS cluster: rag-platform-cluster (1.35, ap-southeast-2)
 - RDS: PostgreSQL 16 + pgvector + litellm DB (Prisma schema applied)
 - ElastiCache: Serverless Redis (TLS)
 - IAM: Pod Identity roles — rag-api, litellm, ingestion, vllm
 - S3: rag-platform-models bucket
 - Addons: AWS Gateway API Controller, kube-prometheus-stack, ADOT, KEDA, metrics-server, Pod Identity agent
-- vLLM Helm release: 0 replicas (KEDA-owned, no GPU provisioned until queue depth >= threshold)
-- LiteLLM Helm release: 1/1 Running (litellm-migrations Job: Completed)
+- vLLM Helm release: 0 replicas (KEDA-owned)
+- LiteLLM Helm release: healthy, Bedrock Claude Sonnet 4.5 confirmed working
 
-## PROXY_MASTER_KEY
-Stored in k8s Secret `litellm-env` (rag-platform namespace). Generated on first provision.
-Retrieve with: kubectl get secret litellm-env -n rag-platform -o jsonpath='{.data.PROXY_MASTER_KEY}' | base64 -d
+## Week 2 status at destroy
+All Week 2 Terraform + Helm items complete. Verified working:
+- LiteLLM → Bedrock (au.anthropic.claude-sonnet-4-5-20250929-v1:0): HTTP 200 confirmed
+- Budget exhaustion: HTTP 400, type=budget_exceeded, vLLM fallback NOT triggered
+- Pod Identity: role ARN verified from inside pod; deletion fallback behaviour documented
 
-## Pending Week 2 exercises
-- Deliberately exercise: exec into pod → aws sts get-caller-identity → verify role ARN
-- Deliberately exercise: delete Pod Identity association → verify exact SDK error message
-- Deliberately exercise: send long-context request → vLLM OOM → pod restart → write runbook entry
-- Bootstrap virtual keys: per-tenant keys with budget (build-plan.md item)
-- Deliberately exercise: exhaust virtual key budget → verify 429 → confirm vLLM NOT triggered
-- Benchmark: vLLM direct vs via LiteLLM → document P50/P95/P99 in decisions.md
+## Known IAM requirements for next provision
+- litellm + rag-api roles need arn:aws:bedrock:*::foundation-model/* (wildcard region)
+  and arn:aws:bedrock:{region}:{account}:inference-profile/* for Claude 4.x inference profiles
+- Already in terraform/iam/main.tf — will apply on next provision
 
-## Next destroy
-Run: uv run scripts/destroy.py --env dev
+## Next provision
+Run: uv run scripts/provision.py --env dev --skip-bootstrap
+Then: uv run scripts/bootstrap_keys.py
+
+## Week 3 starting point
+- src/rag_api/ — FastAPI scaffold
+- k8s/gateway/ — GatewayClass, HTTPRoute, TargetGroupBinding
