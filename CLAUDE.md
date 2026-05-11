@@ -42,3 +42,8 @@ ADRs immutable once Accepted — write new ADR to supersede, never edit.
 
 @docs/build-plan.md
 @docs/decisions.md
+
+## Session Protocol
+1. Always read `./infra/cluster-state.md` before doing anything
+2. After any infra change (provision/destroy), update cluster-state.md
+3. Never assume cluster is running — check state file first

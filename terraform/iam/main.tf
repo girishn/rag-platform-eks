@@ -33,11 +33,15 @@ data "terraform_remote_state" "rds" {
   }
 }
 
+data "aws_secretsmanager_secret" "litellm_db_url" {
+  name = "${var.name_prefix}-litellm-db-url"
+}
+
 locals {
-  cluster_name    = data.terraform_remote_state.eks.outputs.cluster_name
-  account_id      = data.aws_caller_identity.current.account_id
-  rds_resource_id = data.terraform_remote_state.rds.outputs.db_resource_id
-  secret_arn      = data.terraform_remote_state.rds.outputs.master_secret_arn
+  cluster_name      = data.terraform_remote_state.eks.outputs.cluster_name
+  account_id        = data.aws_caller_identity.current.account_id
+  rds_resource_id   = data.terraform_remote_state.rds.outputs.db_resource_id
+  litellm_secret_arn = data.aws_secretsmanager_secret.litellm_db_url.arn
 }
 
 # ── Shared trust policy — all Pod Identity roles use this ─────────────────────
@@ -122,7 +126,10 @@ data "aws_iam_policy_document" "rag_api" {
       "bedrock:InvokeModel",
       "bedrock:InvokeModelWithResponseStream",
     ]
-    resources = ["arn:aws:bedrock:${var.aws_region}::foundation-model/*"]
+    resources = [
+      "arn:aws:bedrock:*::foundation-model/*",
+      "arn:aws:bedrock:${var.aws_region}:${local.account_id}:inference-profile/*",
+    ]
   }
 
   statement {
@@ -147,10 +154,25 @@ data "aws_iam_policy_document" "rag_api" {
 
 data "aws_iam_policy_document" "litellm" {
   statement {
+    sid    = "BedrockInvoke"
+    effect = "Allow"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+    ]
+    resources = [
+      # Wildcard region required: cross-region inference profiles (au., apac.) route
+      # requests to target regions (e.g. ap-southeast-4) chosen by Bedrock at invocation time.
+      "arn:aws:bedrock:*::foundation-model/*",
+      "arn:aws:bedrock:${var.aws_region}:${local.account_id}:inference-profile/*",
+    ]
+  }
+
+  statement {
     sid     = "SecretsManagerDbUrl"
     effect  = "Allow"
     actions = ["secretsmanager:GetSecretValue"]
-    resources = [local.secret_arn]
+    resources = [local.litellm_secret_arn]
   }
 }
 
@@ -199,8 +221,39 @@ data "aws_iam_policy_document" "vllm" {
     effect  = "Allow"
     actions = ["s3:GetObject", "s3:ListBucket"]
     resources = [
-      "arn:aws:s3:::${var.name_prefix}-models",
-      "arn:aws:s3:::${var.name_prefix}-models/*",
+      aws_s3_bucket.models.arn,
+      "${aws_s3_bucket.models.arn}/*",
     ]
   }
+}
+
+# ── S3 buckets ────────────────────────────────────────────────────────────────
+
+resource "aws_s3_bucket" "models" {
+  bucket = "${var.name_prefix}-models"
+  tags   = var.tags
+}
+
+resource "aws_s3_bucket_versioning" "models" {
+  bucket = aws_s3_bucket.models.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "models" {
+  bucket = aws_s3_bucket.models.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "models" {
+  bucket                  = aws_s3_bucket.models.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }

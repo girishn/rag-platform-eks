@@ -17,3 +17,13 @@ output "vllm_role_arn" {
   value       = aws_iam_role.workload["vllm"].arn
   description = "Pod Identity role ARN for vllm"
 }
+
+output "models_bucket_name" {
+  value       = aws_s3_bucket.models.id
+  description = "S3 bucket for vLLM model weights"
+}
+
+output "models_bucket_arn" {
+  value       = aws_s3_bucket.models.arn
+  description = "ARN of the S3 models bucket"
+}
