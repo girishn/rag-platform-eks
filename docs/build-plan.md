@@ -42,8 +42,8 @@ reasoning and `docs/adr/` for the architectural decisions behind each choice.
 - [x] `terraform/iam/` — Pod Identity role: litellm (`secretsmanager:GetSecretValue` for DATABASE_URL only — password auth, not RDS IAM)
 - [x] `terraform/iam/` — Pod Identity role: ingestion (Bedrock, S3, `rds-db:connect` IAM auth, Textract)
 - [x] `terraform/iam/` — Pod Identity role: vllm (S3 read for model weights)
-- [ ] Deliberately exercise: exec into pod → `aws sts get-caller-identity` → verify role ARN
-- [ ] Deliberately exercise: delete association → verify exact SDK error message
+- [x] Deliberately exercise: exec into pod → `aws sts get-caller-identity` → verify role ARN
+- [x] Deliberately exercise: delete association → verify exact SDK error message
 
 ### Add-ons
 - [x] `terraform/addons/` — AWS Gateway API Controller (VPC Lattice)

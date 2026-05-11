@@ -20,7 +20,14 @@ runtime pre-configured and is hardened for production. Mixing AMI families is in
 
 **Observations from deliberate exercises:**
 - _[Fill in after Week 1 exercises]_ Karpenter provisioning time for g5.xlarge spot: X minutes
-- _[Fill in]_ Exact error message when Pod Identity association is deleted: `...`
+- Pod Identity association deleted — pod does NOT error on credential fetch. It silently
+  falls back to the EC2 node IAM role (`assumed-role/system-eks-node-group-.../i-...`).
+  The failure surfaces only when the pod calls a service the node role lacks: Bedrock call returns:
+  `AccessDeniedException: User: arn:aws:sts::...:assumed-role/system-eks-node-group-.../i-...
+  is not authorized to perform: bedrock:InvokeModel on resource: ...`
+  Key implication: a missing Pod Identity association is NOT immediately visible — the pod starts
+  healthy and runs under node credentials until it tries a privileged API call. Always verify with
+  `aws sts get-caller-identity` from inside the pod after any Pod Identity change.
 - _[Fill in]_ Karpenter log pattern for wrong amiFamily: `...`
 
 ---
